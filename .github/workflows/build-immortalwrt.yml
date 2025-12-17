@@ -1,7 +1,7 @@
 ---
 name: Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash)
 
-'on':
+on:
   workflow_dispatch:
   push:
     branches: [main, master]
