@@ -45,7 +45,6 @@ jobs:
             DEVICE_MODEL := ZBT-Z8102AX-V2
             DEVICE_VARIANT := 512MB Flash
             DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
-            DEVICE_DTS_DIR := ../dts
             DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-net-qmi-wwan kmod-usb-serial-option
             KERNEL_IN_UBI := 1
             UBINIZE_OPTS := -E 5
