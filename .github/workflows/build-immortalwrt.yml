@@ -3,7 +3,7 @@ name: Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash)
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
       - 'target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts'
       - '.github/workflows/**'
@@ -11,95 +11,95 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        path: 'custom'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: 'custom'
 
-    - name: Clone ImmortalWrt 24.10.4
-      run: |
-        git clone --depth=1 --branch=openwrt-24.10.4 https://github.com/immortalwrt/immortalwrt.git
-        cd immortalwrt
-        # 添加自定义源（如果需要）
-        echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
+      - name: Clone ImmortalWrt 24.10
+        run: |
+          git clone --depth=1 --branch=openwrt-24.10 https://github.com/immortalwrt/immortalwrt.git
+          cd immortalwrt
+          # 添加自定义源（如果需要）
+          echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
 
-    - name: Copy custom DTS file
-      run: |
-        # 创建必要的目录结构
-        mkdir -p immortalwrt/target/linux/mediatek/dts/
-        # 复制DTS文件
-        cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
-        echo "DTS文件已复制"
+      - name: Copy custom DTS file
+        run: |
+          # 创建必要的目录结构
+          mkdir -p immortalwrt/target/linux/mediatek/dts/
+          # 复制DTS文件
+          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
+          echo "DTS文件已复制"
 
-    - name: Update filogic.mk with 512MB device definition
-      run: |
-        cd immortalwrt
-        # 在filogic.mk中追加512MB设备定义
-        cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
-        
-        # ZBT Z8102AX V2 (512MB Flash version)
-        define Device/zbtlink_zbt-z8102ax-v2-512m
-          DEVICE_VENDOR := Zbtlink
-          DEVICE_MODEL := ZBT-Z8102AX-V2
-          DEVICE_VARIANT := 512MB Flash
-          DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
-          DEVICE_DTS_DIR := ../dts
-          DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-net-qmi-wwan kmod-usb-serial-option
-          KERNEL_IN_UBI := 1
-          UBINIZE_OPTS := -E 5
-          BLOCKSIZE := 128k
-          PAGESIZE := 2048
-          IMAGE_SIZE := 506432k
-          IMAGES += factory.bin
-          IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
-          IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-          DEVICE_COMPAT_VERSION := 1.1
-          DEVICE_COMPAT_MESSAGE := Partition layout has been changed for 512MB Flash
-        endef
-        TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
-        EOF
+      - name: Update filogic.mk with 512MB device definition
+        run: |
+          cd immortalwrt
+          # 在filogic.mk中追加512MB设备定义
+          cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
 
-    - name: Setup build environment
-      run: |
-        cd immortalwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-        # 安装编译依赖
-        sudo apt-get update
-        sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib \
-          g++-multilib gettext git libncurses5-dev libssl-dev python3 python3-selinux \
-          python3-pip rsync unzip zlib1g-dev file wget qemu-utils upx libelf-dev
+          # ZBT Z8102AX V2 (512MB Flash version)
+          define Device/zbtlink_zbt-z8102ax-v2-512m
+            DEVICE_VENDOR := Zbtlink
+            DEVICE_MODEL := ZBT-Z8102AX-V2
+            DEVICE_VARIANT := 512MB Flash
+            DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
+            DEVICE_DTS_DIR := ../dts
+            DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-net-qmi-wwan kmod-usb-serial-option
+            KERNEL_IN_UBI := 1
+            UBINIZE_OPTS := -E 5
+            BLOCKSIZE := 128k
+            PAGESIZE := 2048
+            IMAGE_SIZE := 506432k
+            IMAGES += factory.bin
+            IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+            IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+            DEVICE_COMPAT_VERSION := 1.1
+            DEVICE_COMPAT_MESSAGE := Partition layout has been changed for 512MB Flash
+          endef
+          TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
+          EOF
 
-    - name: Configure build
-      run: |
-        cd immortalwrt
-        # 创建基础配置
-        cat > .config << 'EOF'
-        CONFIG_TARGET_mediatek=y
-        CONFIG_TARGET_mediatek_filogic=y
-        CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
-        CONFIG_TARGET_ROOTFS_INITRAMFS=n
-        CONFIG_TARGET_ROOTFS_SQUASHFS=y
-        CONFIG_PACKAGE_luci=y
-        CONFIG_PACKAGE_luci-base=y
-        CONFIG_PACKAGE_luci-compat=y
-        CONFIG_PACKAGE_luci-theme-bootstrap=y
-        EOF
-        
-        # 应用默认配置
-        make defconfig
+      - name: Setup build environment
+        run: |
+          cd immortalwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          # 安装编译依赖
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib \
+            g++-multilib gettext git libncurses5-dev libssl-dev python3 python3-selinux \
+            python3-pip rsync unzip zlib1g-dev file wget qemu-utils upx libelf-dev
 
-    - name: Build firmware
-      run: |
-        cd immortalwrt
-        # 开始编译
-        make -j$(nproc) V=s
+      - name: Configure build
+        run: |
+          cd immortalwrt
+          # 创建基础配置
+          cat > .config << 'EOF'
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_filogic=y
+          CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
+          CONFIG_TARGET_ROOTFS_INITRAMFS=n
+          CONFIG_TARGET_ROOTFS_SQUASHFS=y
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-base=y
+          CONFIG_PACKAGE_luci-compat=y
+          CONFIG_PACKAGE_luci-theme-bootstrap=y
+          EOF
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: firmware-zbt-z8102ax-v2-512m
-        path: immortalwrt/bin/targets/mediatek/filogic/
-        retention-days: 7
+          # 应用默认配置
+          make defconfig
+
+      - name: Build firmware
+        run: |
+          cd immortalwrt
+          # 开始编译
+          make -j$(nproc) V=s
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-zbt-z8102ax-v2-512m
+          path: immortalwrt/bin/targets/mediatek/filogic/
+          retention-days: 7
