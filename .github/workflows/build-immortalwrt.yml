@@ -41,24 +41,24 @@ jobs:
           path: 'custom'
 
       - name: Clone ImmortalWrt v24.10.4
+        # yamllint disable rule:line-length
         run: |
           git clone --depth=1 --branch=openwrt-v24.10.4 \
             https://github.com/immortalwrt/immortalwrt.git
           cd immortalwrt
           # 添加自定义源（如果需要）
-          echo "src-git custom \
-          https://github.com/${{ github.repository }}.git;main" \
-          >> feeds.conf.default
+          echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
+        # yamllint enable rule:line-length
 
       - name: Copy custom DTS file
+        # yamllint disable rule:line-length
         run: |
           # 创建必要的目录结构
           mkdir -p immortalwrt/target/linux/mediatek/dts/
           # 复制DTS文件
-          cp custom/target/linux/mediatek/dts/\
-          mt7981b-zbtlink-zbt-z8102ax-v2.dts \
-          immortalwrt/target/linux/mediatek/dts/
+          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
           echo "DTS文件已复制"
+        # yamllint enable rule:line-length
 
       - name: Update filogic.mk with 512MB device definition
         run: |
