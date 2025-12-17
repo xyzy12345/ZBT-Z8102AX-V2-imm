@@ -38,28 +38,28 @@ jobs:
         cd immortalwrt
         # 在filogic.mk中追加512MB设备定义
         cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
-
-# ZBT Z8102AX V2 (512MB Flash version)
-define Device/zbtlink_zbt-z8102ax-v2-512m
-  DEVICE_VENDOR := Zbtlink
-  DEVICE_MODEL := ZBT-Z8102AX-V2
-  DEVICE_VARIANT := 512MB Flash
-  DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
-  DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-net-qmi-wwan kmod-usb-serial-option
-  KERNEL_IN_UBI := 1
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 506432k
-  IMAGES += factory.bin
-  IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_COMPAT_VERSION := 1.1
-  DEVICE_COMPAT_MESSAGE := Partition layout has been changed for 512MB Flash
-endef
-TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
-EOF
+        
+        # ZBT Z8102AX V2 (512MB Flash version)
+        define Device/zbtlink_zbt-z8102ax-v2-512m
+          DEVICE_VENDOR := Zbtlink
+          DEVICE_MODEL := ZBT-Z8102AX-V2
+          DEVICE_VARIANT := 512MB Flash
+          DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
+          DEVICE_DTS_DIR := ../dts
+          DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-net-qmi-wwan kmod-usb-serial-option
+          KERNEL_IN_UBI := 1
+          UBINIZE_OPTS := -E 5
+          BLOCKSIZE := 128k
+          PAGESIZE := 2048
+          IMAGE_SIZE := 506432k
+          IMAGES += factory.bin
+          IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+          IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+          DEVICE_COMPAT_VERSION := 1.1
+          DEVICE_COMPAT_MESSAGE := Partition layout has been changed for 512MB Flash
+        endef
+        TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
+        EOF
 
     - name: Setup build environment
       run: |
@@ -77,16 +77,16 @@ EOF
         cd immortalwrt
         # 创建基础配置
         cat > .config << 'EOF'
-CONFIG_TARGET_mediatek=y
-CONFIG_TARGET_mediatek_filogic=y
-CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
-CONFIG_TARGET_ROOTFS_INITRAMFS=n
-CONFIG_TARGET_ROOTFS_SQUASHFS=y
-CONFIG_PACKAGE_luci=y
-CONFIG_PACKAGE_luci-base=y
-CONFIG_PACKAGE_luci-compat=y
-CONFIG_PACKAGE_luci-theme-bootstrap=y
-EOF
+        CONFIG_TARGET_mediatek=y
+        CONFIG_TARGET_mediatek_filogic=y
+        CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
+        CONFIG_TARGET_ROOTFS_INITRAMFS=n
+        CONFIG_TARGET_ROOTFS_SQUASHFS=y
+        CONFIG_PACKAGE_luci=y
+        CONFIG_PACKAGE_luci-base=y
+        CONFIG_PACKAGE_luci-compat=y
+        CONFIG_PACKAGE_luci-theme-bootstrap=y
+        EOF
         
         # 应用默认配置
         make defconfig
