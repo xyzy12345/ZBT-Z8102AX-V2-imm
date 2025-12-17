@@ -268,7 +268,7 @@
 };
 
 &pio {
-	gpio-line-names = 
+	gpio-line-names =
 			"wps",
 			"reset",
 			"watchdog",
@@ -322,8 +322,8 @@
 
 &wifi {
 	status = "okay";
-        nvmem-cells = <&eeprom_factory>;
-        nvmem-cell-names = "eeprom";
+	nvmem-cells = <&eeprom_factory>;
+	nvmem-cell-names = "eeprom";
 };
 
 &factory {
@@ -337,7 +337,7 @@
 	macaddr_factory_02a: macaddr@02a {
 		reg = <0x02a 0x6>;
 	};
-        eeprom_factory: eeprom@0 {
+	eeprom_factory: eeprom@0 {
 		reg = <0x0 0x1000>;
 	};
 };
