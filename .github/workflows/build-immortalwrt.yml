@@ -40,9 +40,9 @@ jobs:
         with:
           path: 'custom'
 
-      - name: Clone ImmortalWrt 24.10
+      - name: Clone ImmortalWrt v24.10.4
         run: |
-          git clone --depth=1 --branch=openwrt-24.10 https://github.com/immortalwrt/immortalwrt.git
+          git clone --depth=1 --branch=openwrt-v24.10.4 https://github.com/immortalwrt/immortalwrt.git
           cd immortalwrt
           # 添加自定义源（如果需要）
           echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
