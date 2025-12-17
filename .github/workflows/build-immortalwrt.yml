@@ -27,7 +27,7 @@ jobs:
           sudo rm -rf /usr/share/swift
           
           # Clean up Docker images and containers
-          docker rmi $(docker images -q) 2>/dev/null || true
+          docker images -q | xargs -r docker rmi 2>/dev/null || true
           
           # Clean apt cache
           sudo apt-get clean
@@ -131,6 +131,7 @@ jobs:
           
           # 开始编译 - Use fewer parallel jobs to reduce disk usage
           # Using 2 jobs instead of all cores to save disk space
+          # Note: -j1 fallback is for any build failures, not just resource issues
           make -j2 V=s || make -j1 V=s
           
           echo "Available disk space after build:"
