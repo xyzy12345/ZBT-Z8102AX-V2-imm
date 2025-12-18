@@ -151,8 +151,8 @@ jobs:
           CONFIG_PACKAGE_luci-app-qmodem-mwan=y
           CONFIG_PACKAGE_luci-app-qmodem-ttl=y
           # 可选：大型应用（建议刷机后在线安装，如需集成请取消注释）
-          # CONFIG_PACKAGE_luci-app-openclash is not set
-          # CONFIG_PACKAGE_adguardhome is not set
+          CONFIG_PACKAGE_luci-app-openclash=y
+          CONFIG_PACKAGE_adguardhome=y
           CONFIG_PACKAGE_kmod-usb2=y
           CONFIG_PACKAGE_kmod-usb-ohci=y
           CONFIG_PACKAGE_kmod-ipt-extra=y
@@ -166,6 +166,11 @@ jobs:
           CONFIG_PACKAGE_kmod-tun=y
           CONFIG_PACKAGE_kmod-inet-diag=y
           CONFIG_PACKAGE_kmod-fs-btrfs=y
+          CONFIG_PACKAGE_kmod-inet-diag=y
+          CONFIG_PACKAGE_kmod-netlink-diag=y
+          CONFIG_PACKAGE_coreutils=y
+          CONFIG_PACKAGE_coreutils-nohup=y
+          CONFIG_PACKAGE_dnsmasq-full=y
           EOF
 
           # 应用默认配置，这将自动解析并添加上述包的依赖
@@ -185,7 +190,24 @@ jobs:
 
           echo "Available disk space after build:"
           df -h
+      - name: 打包个人软件源
+        run: |
+           # 1. 进入编译产物的 packages 目录
+           cd ${{ github.workspace }}/bin/targets/mediatek/filogic/packages
+           # 2. （重要！）为这个目录生成 opkg 索引文件
+           /bin/opkg-make-index . > Packages 2>/dev/null
+           gzip -c Packages > Packages.gz
+           # 3. 将这个目录打包成单独的“软件源”压缩包，便于下载
+           cd ..
+           tar -czvf ../my_custom_feed.tar.gz packages/
 
+      - name: 上传软件源包
+        uses: actions/upload-artifact@v4
+        with:
+           name: my_custom_feed
+           path: ${{ github.workspace }}/bin/targets/mediatek/filogic/my_custom_feed.tar.gz
+           retention-days: 90
+    
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
