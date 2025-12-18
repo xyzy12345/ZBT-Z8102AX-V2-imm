@@ -3,6 +3,12 @@ name: Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash)
 
 on:
   workflow_dispatch:
+    inputs:
+      clean_disk_space:
+        description: 'Clean disk space before build (清除磁盘空间以释放空间)'
+        required: true
+        default: true
+        type: boolean
   push:
     branches: [main, master]
     paths:
@@ -15,6 +21,8 @@ jobs:
 
     steps:
       - name: Free up disk space
+        # yamllint disable-line rule:line-length
+        if: github.event_name == 'push' || github.event.inputs.clean_disk_space == 'true'
         run: |
           echo "Disk space before cleanup:"
           df -h
@@ -79,8 +87,8 @@ jobs:
               luci-app-mwan3 kmod-usb-net-sierrawireless \
               kmod-usb-serial-qualcomm kmod-usb-acm \
               kmod-usb-net-cdc-ether kmod-usb-net-cdc-mbim \
-              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm \
-              
+              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm
+
             KERNEL_IN_UBI := 1
             UBINIZE_OPTS := -E 5
             BLOCKSIZE := 128k
