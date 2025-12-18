@@ -1,0 +1,8 @@
+# ActionLint
+actionlint
+actionlint_*.tar.gz
+
+# Documentation (from actionlint)
+docs/
+man/
+LICENSE.txt
