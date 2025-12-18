@@ -1,8 +1,4 @@
-# ActionLint
+# Build tools and temporary files
 actionlint
 actionlint_*.tar.gz
-
-# Documentation (from actionlint)
-docs/
-man/
-LICENSE.txt
+*.tar.gz
