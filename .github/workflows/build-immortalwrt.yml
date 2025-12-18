@@ -80,7 +80,8 @@ jobs:
               kmod-usb2 kmod-usb-net-sierrawireless kmod-usb-ohci \
               kmod-usb-serial-qualcomm kmod-usb-acm \
               kmod-usb-net-cdc-ether kmod-usb-net-cdc-mbim \
-              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm
+              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm \
+              luci-app-modem luci-app-openclash adguardhome
             KERNEL_IN_UBI := 1
             UBINIZE_OPTS := -E 5
             BLOCKSIZE := 128k
