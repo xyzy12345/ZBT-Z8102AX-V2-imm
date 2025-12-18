@@ -119,26 +119,39 @@ jobs:
           echo "Disk space after dependency installation:"
           df -h
 
-      - name: Configure build
-        run: |
-          cd immortalwrt
-          # 创建基础配置
-          # yamllint disable rule:line-length
-          cat > .config << 'EOF'
-          CONFIG_TARGET_mediatek=y
-          CONFIG_TARGET_mediatek_filogic=y
-          CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
-          CONFIG_TARGET_ROOTFS_INITRAMFS=n
-          CONFIG_TARGET_ROOTFS_SQUASHFS=y
-          CONFIG_PACKAGE_luci=y
-          CONFIG_PACKAGE_luci-base=y
-          CONFIG_PACKAGE_luci-compat=y
-          CONFIG_PACKAGE_luci-theme-bootstrap=y
-          EOF
-          # yamllint enable rule:line-length
-
-          # 应用默认配置
-          make defconfig
+- name: Configure build
+  run: |
+    cd immortalwrt
+    # 创建基础配置，包含您需要的软件包
+    cat > .config << 'EOF'
+CONFIG_TARGET_mediatek=y
+CONFIG_TARGET_mediatek_filogic=y
+CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
+# 为512MB Flash设置足够的根文件系统分区大小（约450MB）
+CONFIG_TARGET_ROOTFS_PARTSIZE=450
+CONFIG_TARGET_ROOTFS_SQUASHFS=y
+# 基础LuCI
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-base=y
+CONFIG_PACKAGE_luci-compat=y
+CONFIG_PACKAGE_luci-theme-bootstrap=y
+# 您需要的USB调制解调器支持
+CONFIG_PACKAGE_luci-app-modem=y
+# 多拨支持 (原DEVICE_PACKAGES中的luci-app-mwan3)
+CONFIG_PACKAGE_luci-app-mwan3=y
+# 其他USB网络驱动（原在DEVICE_PACKAGES中）
+CONFIG_PACKAGE_kmod-usb-net-cdc-mbim=y
+CONFIG_PACKAGE_kmod-usb-net-cdc-ncm=y
+CONFIG_PACKAGE_kmod-usb-net-huawei-cdc-ncm=y
+CONFIG_PACKAGE_kmod-usb-net-sierrawireless=y
+CONFIG_PACKAGE_kmod-usb-serial-qualcomm=y
+CONFIG_PACKAGE_kmod-usb-wwan=y
+# 可选：大型应用（建议刷机后在线安装，如需集成请取消注释）
+# CONFIG_PACKAGE_luci-app-openclash is not set
+# CONFIG_PACKAGE_adguardhome is not set
+EOF
+    # 应用默认配置，这将自动解析并添加上述包的依赖
+    make defconfig
 
       - name: Build firmware
         run: |
