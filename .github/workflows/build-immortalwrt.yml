@@ -3,6 +3,12 @@ name: Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash)
 
 on:
   workflow_dispatch:
+    inputs:
+      clean_disk_space:
+        description: 'Clean disk space before build (清除磁盘空间以释放空间)'
+        required: true
+        default: true
+        type: boolean
   push:
     branches: [main, master]
     paths:
@@ -15,6 +21,8 @@ jobs:
 
     steps:
       - name: Free up disk space
+        # yamllint disable-line rule:line-length
+        if: github.event_name == 'push' || github.event.inputs.clean_disk_space == 'true'
         run: |
           echo "Disk space before cleanup:"
           df -h
@@ -48,6 +56,8 @@ jobs:
           cd immortalwrt
           # 添加自定义源（如果需要）
           echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
+          # 添加 qmodem 模组管理插件源
+          echo "src-git qmodem https://github.com/bxyun0/qmodem.git;main" >> feeds.conf.default
         # yamllint enable rule:line-length
 
       - name: Copy custom DTS file
@@ -79,8 +89,8 @@ jobs:
               luci-app-mwan3 kmod-usb-net-sierrawireless \
               kmod-usb-serial-qualcomm kmod-usb-acm \
               kmod-usb-net-cdc-ether kmod-usb-net-cdc-mbim \
-              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm \
-              
+              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm
+
             KERNEL_IN_UBI := 1
             UBINIZE_OPTS := -E 5
             BLOCKSIZE := 128k
@@ -135,7 +145,11 @@ jobs:
           CONFIG_PACKAGE_luci-compat=y
           CONFIG_PACKAGE_luci-theme-bootstrap=y
           CONFIG_PACKAGE_luci-theme-argon=y
-          CONFIG_PACKAGE_luci-app-modem=y
+          # QModem 模组管理插件
+          CONFIG_PACKAGE_luci-app-qmodem=y
+          CONFIG_PACKAGE_luci-app-qmodem-sms=y
+          CONFIG_PACKAGE_luci-app-qmodem-mwan=y
+          CONFIG_PACKAGE_luci-app-qmodem-ttl=y
           # 可选：大型应用（建议刷机后在线安装，如需集成请取消注释）
           # CONFIG_PACKAGE_luci-app-openclash is not set
           # CONFIG_PACKAGE_adguardhome is not set

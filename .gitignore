@@ -1,0 +1,4 @@
+# Build tools and temporary files
+actionlint
+actionlint_*.tar.gz
+*.tar.gz
