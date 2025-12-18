@@ -122,7 +122,7 @@ jobs:
         run: |
           cd immortalwrt
           # 创建基础配置，包含您需要的软件包
-          cat > .config <<- 'EOF'
+          cat > .config << 'EOF'
           CONFIG_TARGET_mediatek=y
           CONFIG_TARGET_mediatek_filogic=y
           CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
