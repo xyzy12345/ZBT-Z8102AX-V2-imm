@@ -134,11 +134,7 @@ jobs:
           CONFIG_PACKAGE_luci-base=y
           CONFIG_PACKAGE_luci-compat=y
           CONFIG_PACKAGE_luci-theme-bootstrap=y
-          # 您需要的USB调制解调器支持
-          CONFIG_PACKAGE_luci-app-modem=y
-          # 多拨支持 (原DEVICE_PACKAGES中的luci-app-mwan3)
-          CONFIG_PACKAGE_luci-app-mwan3=y
-          # 其他USB网络驱动（原在DEVICE_PACKAGES中）
+          # USB网络驱动（原在DEVICE_PACKAGES中）
           CONFIG_PACKAGE_kmod-usb-net-cdc-mbim=y
           CONFIG_PACKAGE_kmod-usb-net-cdc-ncm=y
           CONFIG_PACKAGE_kmod-usb-net-huawei-cdc-ncm=y
