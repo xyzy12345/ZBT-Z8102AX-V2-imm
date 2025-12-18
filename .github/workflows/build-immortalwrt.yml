@@ -164,6 +164,7 @@ jobs:
           CONFIG_PACKAGE_kmod-ipt-fullconenat=y
           CONFIG_PACKAGE_kmod-nft-tproxy=y
           CONFIG_PACKAGE_kmod-tun=y
+          EOF
 
           # 应用默认配置，这将自动解析并添加上述包的依赖
           make defconfig
