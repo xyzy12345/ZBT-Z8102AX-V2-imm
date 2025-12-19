@@ -255,6 +255,28 @@ jobs:
           echo "Verifying patches directory..."
           ls -la package/boot/uboot-mediatek/patches/ 2>/dev/null || echo "No patches directory found"
           
+          # Build in proper order: tools -> toolchain -> packages
+          # This ensures the cross-compilation toolchain is ready before building U-Boot
+          echo "=== Building host tools ==="
+          echo "Starting tools build at: $(date)"
+          make -j$(nproc) tools/install 2>&1 | tee /tmp/tools_build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "=== Tools build failed! Last 100 lines: ==="
+            tail -100 /tmp/tools_build.log
+            exit 1
+          fi
+          echo "Tools build completed at: $(date)"
+          
+          echo "=== Building toolchain ==="
+          echo "Starting toolchain build at: $(date)"
+          make -j$(nproc) toolchain/install 2>&1 | tee /tmp/toolchain_build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "=== Toolchain build failed! Last 100 lines: ==="
+            tail -100 /tmp/toolchain_build.log
+            exit 1
+          fi
+          echo "Toolchain build completed at: $(date)"
+          
           # 先编译 U-Boot 和 FIP (使用正确的包路径)
           echo "=== Building U-Boot and FIP ==="
           echo "Starting U-Boot build at: $(date)"
