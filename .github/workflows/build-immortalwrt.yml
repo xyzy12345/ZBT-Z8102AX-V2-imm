@@ -108,6 +108,7 @@ jobs:
 
       - name: Setup build environment
         run: |
+          set -o pipefail
           echo "Disk space before setup:"
           df -h
 
@@ -115,10 +116,7 @@ jobs:
 
           # Update feeds with better error handling
           echo "=== Updating feeds ==="
-          ./scripts/feeds update -a 2>&1 | tee ${{ github.workspace }}/feeds_update.log
-          FEEDS_UPDATE_STATUS=${PIPESTATUS[0]}
-
-          if [ $FEEDS_UPDATE_STATUS -ne 0 ]; then
+          if ! ./scripts/feeds update -a 2>&1 | tee ${{ github.workspace }}/feeds_update.log; then
             echo "WARNING: Feeds update had issues. Checking for specific feed problems..."
             if grep -i "qmodem" ${{ github.workspace }}/feeds_update.log | grep -i "error\|fail"; then
               echo "ERROR: QModem feed failed to update. Removing it from feeds..."
@@ -133,10 +131,7 @@ jobs:
           fi
 
           echo "=== Installing feeds ==="
-          ./scripts/feeds install -a 2>&1 | tee ${{ github.workspace }}/feeds_install.log
-          FEEDS_INSTALL_STATUS=${PIPESTATUS[0]}
-
-          if [ $FEEDS_INSTALL_STATUS -ne 0 ]; then
+          if ! ./scripts/feeds install -a 2>&1 | tee ${{ github.workspace }}/feeds_install.log; then
             echo "WARNING: Feeds install had issues"
             # Continue anyway as some feed install warnings are non-critical
           fi
@@ -286,6 +281,7 @@ jobs:
 
       - name: Build firmware
         run: |
+          set -o pipefail
           cd immortalwrt
           echo "Available disk space before build:"
           df -h
@@ -307,8 +303,7 @@ jobs:
           # This ensures the cross-compilation toolchain is ready before building U-Boot
           echo "=== Building host tools ==="
           echo "Starting tools build at: $(date)"
-          make -j$(nproc) tools/install 2>&1 | tee ${{ github.workspace }}/build_logs/tools_build.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          if ! make -j$(nproc) tools/install 2>&1 | tee ${{ github.workspace }}/build_logs/tools_build.log; then
             echo "=== Tools build failed! Last 100 lines: ==="
             tail -100 ${{ github.workspace }}/build_logs/tools_build.log
             echo "=== Error summary: ==="
@@ -319,8 +314,7 @@ jobs:
 
           echo "=== Building toolchain ==="
           echo "Starting toolchain build at: $(date)"
-          make -j$(nproc) toolchain/install 2>&1 | tee ${{ github.workspace }}/build_logs/toolchain_build.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          if ! make -j$(nproc) toolchain/install 2>&1 | tee ${{ github.workspace }}/build_logs/toolchain_build.log; then
             echo "=== Toolchain build failed! Last 100 lines: ==="
             tail -100 ${{ github.workspace }}/build_logs/toolchain_build.log
             echo "=== Error summary: ==="
@@ -332,18 +326,14 @@ jobs:
           # 先编译 U-Boot 和 FIP (使用正确的包路径)
           echo "=== Building U-Boot and FIP ==="
           echo "Starting U-Boot build at: $(date)"
-          make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee ${{ github.workspace }}/build_logs/uboot_build.log
-          UBOOT_STATUS=${PIPESTATUS[0]}
-          if [ $UBOOT_STATUS -ne 0 ]; then
+          if ! make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee ${{ github.workspace }}/build_logs/uboot_build.log; then
             echo "=== U-Boot build failed! Last 100 lines of output: ==="
             tail -100 ${{ github.workspace }}/build_logs/uboot_build.log
             echo "=== Error summary: ==="
             grep -i "error:" ${{ github.workspace }}/build_logs/uboot_build.log | tail -20 || echo "No specific errors found"
             echo "=== Retrying U-Boot build... ==="
             sleep 3
-            make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee ${{ github.workspace }}/build_logs/uboot_build_retry.log
-            UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
-            if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
+            if ! make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee ${{ github.workspace }}/build_logs/uboot_build_retry.log; then
               echo "=== U-Boot retry also failed! Last 100 lines: ==="
               tail -100 ${{ github.workspace }}/build_logs/uboot_build_retry.log
               echo "=== Error summary: ==="
@@ -358,9 +348,7 @@ jobs:
           echo "Starting firmware build at: $(date)"
           echo "Memory status:"
           free -h
-          make -j2 V=s 2>&1 | tee ${{ github.workspace }}/build_logs/firmware_build.log
-          FIRMWARE_STATUS=${PIPESTATUS[0]}
-          if [ $FIRMWARE_STATUS -ne 0 ]; then
+          if ! make -j2 V=s 2>&1 | tee ${{ github.workspace }}/build_logs/firmware_build.log; then
             echo "=== Firmware build with -j2 failed, last 200 lines: ==="
             tail -200 ${{ github.workspace }}/build_logs/firmware_build.log
             echo ""
@@ -375,9 +363,7 @@ jobs:
             grep "make\[[0-9]\]:" ${{ github.workspace }}/build_logs/firmware_build.log | grep -i error | tail -20 || echo "No make errors found"
             echo ""
             echo "=== Retrying with -j1... ==="
-            make -j1 V=s 2>&1 | tee ${{ github.workspace }}/build_logs/firmware_build_j1.log
-            FIRMWARE_J1_STATUS=${PIPESTATUS[0]}
-            if [ $FIRMWARE_J1_STATUS -ne 0 ]; then
+            if ! make -j1 V=s 2>&1 | tee ${{ github.workspace }}/build_logs/firmware_build_j1.log; then
               echo "=== Firmware build with -j1 also failed! Last 300 lines: ==="
               tail -300 ${{ github.workspace }}/build_logs/firmware_build_j1.log
               echo ""
