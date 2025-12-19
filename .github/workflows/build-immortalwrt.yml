@@ -198,12 +198,14 @@ jobs:
           df -h
 
           # 移除有问题的 U-Boot 补丁 (Known issue in v24.10.4)
+          # Workaround for ImmortalWrt issue #2152: This patch fails to apply
+          # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
           echo "Removing problematic U-Boot patch..."
           rm -f package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch || true
           
           # 先编译 U-Boot 和 FIP (使用正确的包路径)
           echo "Building U-Boot and FIP..."
-          make -j1 V=s package/boot/uboot-mediatek/compile || make -j1 V=s package/boot/uboot-mediatek/compile
+          make -j1 V=s package/boot/uboot-mediatek/compile || { sleep 3; echo "Retrying U-Boot build..."; make -j1 V=s package/boot/uboot-mediatek/compile; }
           
           # 然后编译整个固件
           echo "Building full firmware..."
