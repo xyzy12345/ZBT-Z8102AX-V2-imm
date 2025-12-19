@@ -13,13 +13,14 @@ on:
 jobs:
   build-uboot-fip:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
       contents: read
 
     steps:
       - name: Free up disk space
         # yamllint disable-line rule:line-length
-        if: github.event.inputs.clean_disk_space == 'true'
+        if: ${{ github.event.inputs.clean_disk_space != false }}
         run: |
           echo "Disk space before cleanup:"
           df -h
@@ -165,12 +166,12 @@ jobs:
           echo "=== Validation Complete ==="
 
       - name: Build U-Boot and FIP
+        timeout-minutes: 120
         run: |
           set -o pipefail
           cd immortalwrt
           echo "Available disk space before build:"
           df -h
-
           # 移除有问题的 U-Boot 补丁 (Known issue in v24.10.4)
           # Workaround for ImmortalWrt issue #2152: This patch fails to apply
           # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
@@ -186,21 +187,29 @@ jobs:
           echo "Starting tools build at: $(date)"
           make -j$(nproc) tools/install 2>&1 | tee /tmp/tools_build.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "=== Tools build failed! Last 100 lines: ==="
-            tail -100 /tmp/tools_build.log
+            echo "=== Tools build failed! Last 200 lines: ==="
+            tail -200 /tmp/tools_build.log
+            echo "=== Disk space at failure: ==="
+            df -h
             exit 1
           fi
           echo "Tools build completed at: $(date)"
+          echo "Disk space after tools build:"
+          df -h
           
           echo "=== Building toolchain ==="
           echo "Starting toolchain build at: $(date)"
           make -j$(nproc) toolchain/install 2>&1 | tee /tmp/toolchain_build.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "=== Toolchain build failed! Last 100 lines: ==="
-            tail -100 /tmp/toolchain_build.log
+            echo "=== Toolchain build failed! Last 200 lines: ==="
+            tail -200 /tmp/toolchain_build.log
+            echo "=== Disk space at failure: ==="
+            df -h
             exit 1
           fi
           echo "Toolchain build completed at: $(date)"
+          echo "Disk space after toolchain build:"
+          df -h
           
           # 编译 U-Boot 和 FIP
           echo "=== Building U-Boot and FIP ==="
@@ -208,15 +217,23 @@ jobs:
           make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log
           UBOOT_STATUS=${PIPESTATUS[0]}
           if [ $UBOOT_STATUS -ne 0 ]; then
-            echo "=== U-Boot build failed! Last 100 lines of output: ==="
-            tail -100 /tmp/uboot_build.log
+            echo "=== U-Boot build failed! Last 200 lines of output: ==="
+            tail -200 /tmp/uboot_build.log
+            echo "=== Checking for common error patterns ==="
+            grep -i "error\|fail\|no space" /tmp/uboot_build.log | tail -50 || true
+            echo "=== Disk space at failure: ==="
+            df -h
             echo "=== Retrying U-Boot build... ==="
             sleep 3
             make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log
             UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
             if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
-              echo "=== U-Boot retry also failed! Last 100 lines: ==="
-              tail -100 /tmp/uboot_build_retry.log
+              echo "=== U-Boot retry also failed! Last 200 lines: ==="
+              tail -200 /tmp/uboot_build_retry.log
+              echo "=== Checking for common error patterns ==="
+              grep -i "error\|fail\|no space" /tmp/uboot_build_retry.log | tail -50 || true
+              echo "=== Disk space at retry failure: ==="
+              df -h
               exit 1
             fi
           fi
