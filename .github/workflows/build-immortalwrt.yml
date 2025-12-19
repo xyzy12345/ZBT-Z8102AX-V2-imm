@@ -137,14 +137,6 @@ jobs:
           CONFIG_TARGET_mediatek_filogic=y
           CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
           
-          # 启用 U-Boot 和 FIP 编译
-          CONFIG_TARGET_UBOOT=y
-          CONFIG_TARGET_UBOOT_FILOGIC=y
-          
-          # 启用 TFTP 升级支持（可选）
-          CONFIG_TARGET_UBOOT_SPL_IMAGE=y
-          CONFIG_TARGET_UBOOT_SPL_IMAGE_NAME="u-boot-spl-mediatek-filogic.bin"
-          
           # 为512MB Flash设置足够的根文件系统分区大小（约450MB）
           CONFIG_TARGET_ROOTFS_PARTSIZE=450
           CONFIG_TARGET_ROOTFS_SQUASHFS=y
@@ -182,7 +174,6 @@ jobs:
           CONFIG_PACKAGE_kmod-tun=y
           CONFIG_PACKAGE_kmod-inet-diag=y
           CONFIG_PACKAGE_kmod-fs-btrfs=y
-          CONFIG_PACKAGE_kmod-inet-diag=y
           CONFIG_PACKAGE_kmod-netlink-diag=y
           
           # 工具
@@ -206,9 +197,15 @@ jobs:
           echo "Available disk space before build:"
           df -h
 
-          # 先编译 U-Boot 和 FIP
+          # 移除有问题的 U-Boot 补丁 (Known issue in v24.10.4)
+          # Workaround for ImmortalWrt issue #2152: This patch fails to apply
+          # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
+          echo "Removing problematic U-Boot patch..."
+          rm -f package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch || true
+          
+          # 先编译 U-Boot 和 FIP (使用正确的包路径)
           echo "Building U-Boot and FIP..."
-          make -j1 V=s package/boot/uboot-mediatek-filogic/compile || make -j1 V=s package/boot/uboot-mediatek-filogic/compile
+          make -j1 V=s package/boot/uboot-mediatek/compile || { sleep 3; echo "Retrying U-Boot build..."; make -j1 V=s package/boot/uboot-mediatek/compile; }
           
           # 然后编译整个固件
           echo "Building full firmware..."
