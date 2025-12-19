@@ -197,8 +197,13 @@ jobs:
           # 1. 进入编译产物的 packages 目录
           cd ${{ github.workspace }}/immortalwrt/bin/targets/mediatek/filogic/packages
           # 2. （重要！）为这个目录生成 opkg 索引文件
-          ${{ github.workspace }}/immortalwrt/staging_dir/host/bin/opkg-make-index . > Packages 2>/dev/null
-          gzip -c Packages > Packages.gz
+          if ${{ github.workspace }}/immortalwrt/staging_dir/host/bin/opkg-make-index . > Packages; then
+            echo "Package index created successfully"
+            gzip -c Packages > Packages.gz
+          else
+            echo "Error: Failed to create package index"
+            exit 1
+          fi
           # 3. 将这个目录打包成单独的"软件源"压缩包，便于下载
           cd ..
           tar -czvf my_custom_feed.tar.gz packages/
