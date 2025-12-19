@@ -137,14 +137,6 @@ jobs:
           CONFIG_TARGET_mediatek_filogic=y
           CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
           
-          # 启用 U-Boot 和 FIP 编译
-          CONFIG_TARGET_UBOOT=y
-          CONFIG_TARGET_UBOOT_FILOGIC=y
-          
-          # 启用 TFTP 升级支持（可选）
-          CONFIG_TARGET_UBOOT_SPL_IMAGE=y
-          CONFIG_TARGET_UBOOT_SPL_IMAGE_NAME="u-boot-spl-mediatek-filogic.bin"
-          
           # 为512MB Flash设置足够的根文件系统分区大小（约450MB）
           CONFIG_TARGET_ROOTFS_PARTSIZE=450
           CONFIG_TARGET_ROOTFS_SQUASHFS=y
@@ -182,7 +174,6 @@ jobs:
           CONFIG_PACKAGE_kmod-tun=y
           CONFIG_PACKAGE_kmod-inet-diag=y
           CONFIG_PACKAGE_kmod-fs-btrfs=y
-          CONFIG_PACKAGE_kmod-inet-diag=y
           CONFIG_PACKAGE_kmod-netlink-diag=y
           
           # 工具
