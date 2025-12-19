@@ -303,7 +303,7 @@ jobs:
           # This ensures the cross-compilation toolchain is ready before building U-Boot
           echo "=== Building host tools ==="
           echo "Starting tools build at: $(date)"
-          if ! make -j$(nproc) tools/install 2>&1 | tee ${{ github.workspace }}/build_logs/tools_build.log; then
+          if ! make -j4 tools/install 2>&1 | tee ${{ github.workspace }}/build_logs/tools_build.log; then
             echo "=== Tools build failed! Last 100 lines: ==="
             tail -100 ${{ github.workspace }}/build_logs/tools_build.log
             echo "=== Error summary: ==="
@@ -314,7 +314,7 @@ jobs:
 
           echo "=== Building toolchain ==="
           echo "Starting toolchain build at: $(date)"
-          if ! make -j$(nproc) toolchain/install 2>&1 | tee ${{ github.workspace }}/build_logs/toolchain_build.log; then
+          if ! make -j4 toolchain/install 2>&1 | tee ${{ github.workspace }}/build_logs/toolchain_build.log; then
             echo "=== Toolchain build failed! Last 100 lines: ==="
             tail -100 ${{ github.workspace }}/build_logs/toolchain_build.log
             echo "=== Error summary: ==="
