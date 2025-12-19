@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Free up disk space
         # yamllint disable-line rule:line-length
-        if: github.event.inputs.clean_disk_space == true
+        if: github.event.inputs.clean_disk_space == 'true'
         run: |
           echo "Disk space before cleanup:"
           df -h
@@ -31,7 +31,7 @@ jobs:
 
           # Clean up Docker images and containers
           docker ps -aq | xargs -r docker rm -f 2>/dev/null || true
-          docker images -q | xargs -r docker rmi 2>/dev/null || true
+          docker images -q | xargs -r docker rmi -f 2>/dev/null || true
 
           # Clean apt cache
           sudo apt-get clean
