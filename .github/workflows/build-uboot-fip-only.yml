@@ -13,6 +13,8 @@ on:
 jobs:
   build-uboot-fip:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Free up disk space
