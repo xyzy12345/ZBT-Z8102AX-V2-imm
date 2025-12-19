@@ -191,6 +191,54 @@ jobs:
           # 应用默认配置，这将自动解析并添加上述包的依赖
           make defconfig
 
+      - name: Validate build environment
+        run: |
+          cd immortalwrt
+          echo "=== Build Environment Validation ==="
+          echo "Checking required tools..."
+          which gcc g++ make || { echo "ERROR: Basic build tools missing!"; exit 1; }
+          echo "GCC version:"
+          gcc --version | head -1
+          echo "Make version:"
+          make --version | head -1
+          
+          echo "Checking U-Boot package structure..."
+          if [ ! -d "package/boot/uboot-mediatek" ]; then
+            echo "ERROR: uboot-mediatek package not found!"
+            exit 1
+          fi
+          ls -la package/boot/uboot-mediatek/
+          
+          echo "Checking for problematic patches..."
+          if [ -f "package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch" ]; then
+            echo "WARNING: Problematic patch still exists, will be removed in build step"
+          else
+            echo "OK: Problematic patch not present"
+          fi
+          
+          echo "Checking .config file..."
+          if [ ! -f ".config" ]; then
+            echo "ERROR: .config file not found!"
+            exit 1
+          fi
+          echo "OK: .config file exists"
+          CONFIG_COUNT=$(grep -c "^CONFIG_" .config || echo "0")
+          if [ "$CONFIG_COUNT" -gt 0 ]; then
+            echo "OK: Found $CONFIG_COUNT configuration lines"
+          else
+            echo "WARNING: No CONFIG lines found in .config"
+          fi
+          
+          echo "Checking target device configuration..."
+          if grep -q "CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y" .config; then
+            echo "OK: Target device configured correctly"
+          else
+            echo "ERROR: Target device not configured!"
+            exit 1
+          fi
+          
+          echo "=== Validation Complete ==="
+
       - name: Build firmware
         run: |
           cd immortalwrt
@@ -203,13 +251,48 @@ jobs:
           echo "Removing problematic U-Boot patch..."
           rm -f package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch || true
           
+          # Verify patch removal
+          echo "Verifying patches directory..."
+          ls -la package/boot/uboot-mediatek/patches/ 2>/dev/null || echo "No patches directory found"
+          
           # 先编译 U-Boot 和 FIP (使用正确的包路径)
-          echo "Building U-Boot and FIP..."
-          make -j1 V=s package/boot/uboot-mediatek/compile || { sleep 3; echo "Retrying U-Boot build..."; make -j1 V=s package/boot/uboot-mediatek/compile; }
+          echo "=== Building U-Boot and FIP ==="
+          echo "Starting U-Boot build at: $(date)"
+          make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log
+          UBOOT_STATUS=${PIPESTATUS[0]}
+          if [ $UBOOT_STATUS -ne 0 ]; then
+            echo "=== U-Boot build failed! Last 100 lines of output: ==="
+            tail -100 /tmp/uboot_build.log
+            echo "=== Retrying U-Boot build... ==="
+            sleep 3
+            make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log
+            UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
+            if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
+              echo "=== U-Boot retry also failed! Last 100 lines: ==="
+              tail -100 /tmp/uboot_build_retry.log
+              exit 1
+            fi
+          fi
+          echo "U-Boot build completed at: $(date)"
           
           # 然后编译整个固件
-          echo "Building full firmware..."
-          make -j2 V=s || make -j1 V=s
+          echo "=== Building full firmware ==="
+          echo "Starting firmware build at: $(date)"
+          make -j2 V=s 2>&1 | tee /tmp/firmware_build.log
+          FIRMWARE_STATUS=${PIPESTATUS[0]}
+          if [ $FIRMWARE_STATUS -ne 0 ]; then
+            echo "=== Firmware build with -j2 failed, last 100 lines: ==="
+            tail -100 /tmp/firmware_build.log
+            echo "=== Retrying with -j1... ==="
+            make -j1 V=s 2>&1 | tee /tmp/firmware_build_j1.log
+            FIRMWARE_J1_STATUS=${PIPESTATUS[0]}
+            if [ $FIRMWARE_J1_STATUS -ne 0 ]; then
+              echo "=== Firmware build with -j1 also failed! Last 200 lines: ==="
+              tail -200 /tmp/firmware_build_j1.log
+              exit 1
+            fi
+          fi
+          echo "Firmware build completed at: $(date)"
 
           echo "Available disk space after build:"
           df -h
