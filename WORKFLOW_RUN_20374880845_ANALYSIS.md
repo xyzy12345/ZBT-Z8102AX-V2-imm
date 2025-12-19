@@ -171,10 +171,12 @@ Though disk space is freed up in an earlier step, it's possible:
    - This bypasses compilation issues entirely
 
 4. **Test Locally First**:
-   Before pushing to CI, test the build locally with:
-   ```bash
-   docker run -it --rm -v $(pwd):/build openwrtorg/imagebuilder:mediatek-filogic-openwrt-24.10
-   ```
+   Before pushing to CI, test the build locally. While ImmortalWrt doesn't provide official Docker imagebuilder images, you can:
+   - Clone ImmortalWrt locally and build there
+   - Or use OpenWrt's Docker image for initial testing (note: may have differences):
+     ```bash
+     docker run -it --rm -v $(pwd):/build openwrtorg/imagebuilder:mediatek-filogic-openwrt-24.10
+     ```
 
 ## Next Steps
 

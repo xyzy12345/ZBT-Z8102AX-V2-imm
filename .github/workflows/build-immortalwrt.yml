@@ -222,7 +222,12 @@ jobs:
             exit 1
           fi
           echo "OK: .config file exists"
-          grep -c "^CONFIG_" .config || echo "Configuration lines found"
+          CONFIG_COUNT=$(grep -c "^CONFIG_" .config || echo "0")
+          if [ "$CONFIG_COUNT" -gt 0 ]; then
+            echo "OK: Found $CONFIG_COUNT configuration lines"
+          else
+            echo "WARNING: No CONFIG lines found in .config"
+          fi
           
           echo "Checking target device configuration..."
           if grep -q "CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y" .config; then
@@ -253,12 +258,16 @@ jobs:
           # 先编译 U-Boot 和 FIP (使用正确的包路径)
           echo "=== Building U-Boot and FIP ==="
           echo "Starting U-Boot build at: $(date)"
-          if ! make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log; then
+          make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log
+          UBOOT_STATUS=${PIPESTATUS[0]}
+          if [ $UBOOT_STATUS -ne 0 ]; then
             echo "=== U-Boot build failed! Last 100 lines of output: ==="
             tail -100 /tmp/uboot_build.log
             echo "=== Retrying U-Boot build... ==="
             sleep 3
-            if ! make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log; then
+            make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log
+            UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
+            if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
               echo "=== U-Boot retry also failed! Last 100 lines: ==="
               tail -100 /tmp/uboot_build_retry.log
               exit 1
@@ -269,11 +278,15 @@ jobs:
           # 然后编译整个固件
           echo "=== Building full firmware ==="
           echo "Starting firmware build at: $(date)"
-          if ! make -j2 V=s 2>&1 | tee /tmp/firmware_build.log; then
+          make -j2 V=s 2>&1 | tee /tmp/firmware_build.log
+          FIRMWARE_STATUS=${PIPESTATUS[0]}
+          if [ $FIRMWARE_STATUS -ne 0 ]; then
             echo "=== Firmware build with -j2 failed, last 100 lines: ==="
             tail -100 /tmp/firmware_build.log
             echo "=== Retrying with -j1... ==="
-            if ! make -j1 V=s 2>&1 | tee /tmp/firmware_build_j1.log; then
+            make -j1 V=s 2>&1 | tee /tmp/firmware_build_j1.log
+            FIRMWARE_J1_STATUS=${PIPESTATUS[0]}
+            if [ $FIRMWARE_J1_STATUS -ne 0 ]; then
               echo "=== Firmware build with -j1 also failed! Last 200 lines: ==="
               tail -200 /tmp/firmware_build_j1.log
               exit 1
