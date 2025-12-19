@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Free up disk space
         # yamllint disable-line rule:line-length
-        if: github.event.inputs.clean_disk_space == 'true'
+        if: github.event.inputs.clean_disk_space == true
         run: |
           echo "Disk space before cleanup:"
           df -h
@@ -30,6 +30,7 @@ jobs:
           sudo rm -rf /usr/share/swift
 
           # Clean up Docker images and containers
+          docker ps -aq | xargs -r docker rm -f 2>/dev/null || true
           docker images -q | xargs -r docker rmi 2>/dev/null || true
 
           # Clean apt cache
@@ -163,6 +164,7 @@ jobs:
 
       - name: Build U-Boot and FIP
         run: |
+          set -o pipefail
           cd immortalwrt
           echo "Available disk space before build:"
           df -h
