@@ -1,0 +1,359 @@
+---
+name: Build U-Boot and FIP Only for ZBT Z8102AX V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      clean_disk_space:
+        description: 'Clean disk space before build (清除磁盘空间以释放空间)'
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build-uboot-fip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Free up disk space
+        # yamllint disable-line rule:line-length
+        if: github.event.inputs.clean_disk_space == 'true'
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary software to free up disk space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/share/swift
+
+          # Clean up Docker images and containers
+          docker images -q | xargs -r docker rmi 2>/dev/null || true
+
+          # Clean apt cache
+          sudo apt-get clean
+
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: 'custom'
+
+      - name: Clone ImmortalWrt v24.10.4
+        # yamllint disable rule:line-length
+        run: |
+          git clone --depth=1 --branch=v24.10.4 \
+            https://github.com/immortalwrt/immortalwrt.git
+          cd immortalwrt
+        # yamllint enable rule:line-length
+
+      - name: Copy custom DTS file
+        # yamllint disable rule:line-length
+        run: |
+          # 创建必要的目录结构
+          mkdir -p immortalwrt/target/linux/mediatek/dts/
+          # 复制DTS文件
+          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
+          echo "DTS文件已复制"
+        # yamllint enable rule:line-length
+
+      - name: Update filogic.mk with 512MB device definition
+        run: |
+          cd immortalwrt
+          # 在filogic.mk中追加512MB设备定义
+          cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
+
+          # ZBT Z8102AX V2 (512MB Flash version)
+          define Device/zbtlink_zbt-z8102ax-v2-512m
+            DEVICE_VENDOR := Zbtlink
+            DEVICE_MODEL := ZBT-Z8102AX-V2
+            DEVICE_VARIANT := 512MB Flash
+            DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
+            DEVICE_DTS_DIR := ../dts
+            DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware \
+              mt7981-wo-firmware kmod-usb3
+
+            KERNEL_IN_UBI := 1
+            UBINIZE_OPTS := -E 5
+            BLOCKSIZE := 128k
+            PAGESIZE := 2048
+            IMAGE_SIZE := 506432k
+            IMAGES += factory.bin
+            IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+            IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+            DEVICE_COMPAT_VERSION := 1.1
+            DEVICE_COMPAT_MESSAGE := Partition layout has been changed \
+              for 512MB Flash
+          endef
+          TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
+          EOF
+
+      - name: Setup build environment
+        run: |
+          echo "Disk space before setup:"
+          df -h
+
+          cd immortalwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+          echo "Disk space after feeds update:"
+          df -h
+
+          # 安装编译依赖
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang flex bison g++ \
+            gawk gcc-multilib g++-multilib gettext git libncurses5-dev \
+            libssl-dev python3 python3-selinux python3-pip rsync unzip \
+            zlib1g-dev file wget qemu-utils upx libelf-dev
+
+          echo "Disk space after dependency installation:"
+          df -h
+
+      - name: Configure build for U-Boot only
+        run: |
+          cd immortalwrt
+          # 创建最小配置仅用于构建 U-Boot
+          cat > .config << 'EOF'
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_filogic=y
+          CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
+          EOF
+
+          # 应用默认配置
+          make defconfig
+
+      - name: Validate build environment
+        run: |
+          cd immortalwrt
+          echo "=== Build Environment Validation ==="
+          echo "Checking required tools..."
+          which gcc g++ make || { echo "ERROR: Basic build tools missing!"; exit 1; }
+          echo "GCC version:"
+          gcc --version | head -1
+          echo "Make version:"
+          make --version | head -1
+          
+          echo "Checking U-Boot package structure..."
+          if [ ! -d "package/boot/uboot-mediatek" ]; then
+            echo "ERROR: uboot-mediatek package not found!"
+            exit 1
+          fi
+          ls -la package/boot/uboot-mediatek/
+          
+          echo "Checking for problematic patches..."
+          if [ -f "package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch" ]; then
+            echo "WARNING: Problematic patch still exists, will be removed in build step"
+          else
+            echo "OK: Problematic patch not present"
+          fi
+          
+          echo "Checking .config file..."
+          if [ ! -f ".config" ]; then
+            echo "ERROR: .config file not found!"
+            exit 1
+          fi
+          echo "OK: .config file exists"
+          
+          echo "=== Validation Complete ==="
+
+      - name: Build U-Boot and FIP
+        run: |
+          cd immortalwrt
+          echo "Available disk space before build:"
+          df -h
+
+          # 移除有问题的 U-Boot 补丁 (Known issue in v24.10.4)
+          # Workaround for ImmortalWrt issue #2152: This patch fails to apply
+          # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
+          echo "Removing problematic U-Boot patch..."
+          rm -f package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch || true
+          
+          # Verify patch removal
+          echo "Verifying patches directory..."
+          ls -la package/boot/uboot-mediatek/patches/ 2>/dev/null || echo "No patches directory found"
+          
+          # Build in proper order: tools -> toolchain -> U-Boot
+          echo "=== Building host tools ==="
+          echo "Starting tools build at: $(date)"
+          make -j$(nproc) tools/install 2>&1 | tee /tmp/tools_build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "=== Tools build failed! Last 100 lines: ==="
+            tail -100 /tmp/tools_build.log
+            exit 1
+          fi
+          echo "Tools build completed at: $(date)"
+          
+          echo "=== Building toolchain ==="
+          echo "Starting toolchain build at: $(date)"
+          make -j$(nproc) toolchain/install 2>&1 | tee /tmp/toolchain_build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "=== Toolchain build failed! Last 100 lines: ==="
+            tail -100 /tmp/toolchain_build.log
+            exit 1
+          fi
+          echo "Toolchain build completed at: $(date)"
+          
+          # 编译 U-Boot 和 FIP
+          echo "=== Building U-Boot and FIP ==="
+          echo "Starting U-Boot build at: $(date)"
+          make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log
+          UBOOT_STATUS=${PIPESTATUS[0]}
+          if [ $UBOOT_STATUS -ne 0 ]; then
+            echo "=== U-Boot build failed! Last 100 lines of output: ==="
+            tail -100 /tmp/uboot_build.log
+            echo "=== Retrying U-Boot build... ==="
+            sleep 3
+            make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log
+            UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
+            if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
+              echo "=== U-Boot retry also failed! Last 100 lines: ==="
+              tail -100 /tmp/uboot_build_retry.log
+              exit 1
+            fi
+          fi
+          echo "U-Boot build completed at: $(date)"
+
+          echo "Available disk space after build:"
+          df -h
+
+      - name: 查找并准备 U-Boot 和 FIP 文件
+        run: |
+          cd immortalwrt
+          echo "查找 U-Boot 和 FIP 文件..."
+          
+          # 创建 U-Boot/FIP 打包目录
+          mkdir -p ${{ github.workspace }}/uboot_fip
+          
+          # 查找并复制 U-Boot 相关文件
+          echo "搜索 bin/targets 目录..."
+          find bin/targets -type f \( -name "*uboot*" -o -name "*fip*" -o -name "*u-boot*" \) 2>/dev/null | while read file; do
+            echo "Found: $file"
+            cp "$file" ${{ github.workspace }}/uboot_fip/ 2>/dev/null || true
+          done
+          
+          # 如果 bin/targets 中没有找到，尝试从 build_dir 中查找
+          if [ -z "$(ls -A ${{ github.workspace }}/uboot_fip 2>/dev/null)" ]; then
+            echo "bin/targets 中未找到文件，搜索 build_dir..."
+            find build_dir/target-aarch64_cortex-a53_musl -type f \( -name "*uboot*" -o -name "*fip*" -o -name "*u-boot*.bin" \) 2>/dev/null | head -20 | while read file; do
+              echo "Found: $file"
+              cp "$file" ${{ github.workspace }}/uboot_fip/ 2>/dev/null || true
+            done
+          fi
+          
+          # 列出最终的文件
+          echo "=== U-Boot/FIP 目录内容 ==="
+          ls -lh ${{ github.workspace }}/uboot_fip/ || echo "目录为空"
+          
+          # 如果找到文件，显示文件大小
+          if [ -n "$(ls -A ${{ github.workspace }}/uboot_fip 2>/dev/null)" ]; then
+            echo "=== 文件详情 ==="
+            for file in ${{ github.workspace }}/uboot_fip/*; do
+              if [ -f "$file" ]; then
+                echo "$(basename $file): $(du -h $file | cut -f1)"
+              fi
+            done
+          else
+            echo "警告: 未找到 U-Boot/FIP 文件"
+          fi
+
+      - name: 上传 U-Boot 和 FIP 文件
+        uses: actions/upload-artifact@v4
+        with:
+          name: uboot-fip-files-only
+          path: ${{ github.workspace }}/uboot_fip/
+          retention-days: 90
+
+      - name: 创建 U-Boot/FIP 使用说明
+        run: |
+          cat > ${{ github.workspace }}/uboot_fip/README.md << 'EOF'
+          # ZBT Z8102AX V2 U-Boot 和 FIP 文件
+
+          ## 文件说明
+
+          此工件仅包含 U-Boot 引导加载程序和 FIP (Firmware Image Package) 文件，不包含完整固件。
+
+          ### 文件类型
+
+          1. **U-Boot 文件**: 
+             - 通常命名为 `*uboot*.bin` 或 `u-boot-*.bin`
+             - 用于底层引导加载
+
+          2. **FIP 文件**: 
+             - 通常命名为 `*fip*.bin`
+             - Firmware Image Package，包含信任固件 (Trusted Firmware)
+
+          ## 使用场景
+
+          这些文件适用于以下场景：
+
+          1. **U-Boot 升级**: 当您需要更新引导加载程序但不想刷写整个固件时
+          2. **救砖恢复**: 配合 mtd-utils 或专用工具恢复设备引导
+          3. **开发测试**: 测试新的 U-Boot 配置或补丁
+
+          ## 刷写方法
+
+          ⚠️ **警告**: 刷写 U-Boot 有风险！操作失误可能导致设备变砖。
+
+          ### 方法 1: 通过正在运行的 OpenWrt/ImmortalWrt
+
+          ```bash
+          # 1. 上传文件到路由器
+          scp *uboot*.bin root@192.168.1.1:/tmp/
+          scp *fip*.bin root@192.168.1.1:/tmp/
+
+          # 2. SSH 登录到路由器
+          ssh root@192.168.1.1
+
+          # 3. 找到 U-Boot 分区 (通常是 /dev/mtd0 或 /dev/mtd1)
+          cat /proc/mtd
+
+          # 4. 备份当前 U-Boot (强烈推荐！)
+          dd if=/dev/mtd0 of=/tmp/uboot_backup.bin
+
+          # 5. 刷写新 U-Boot (请根据实际分区调整)
+          # mtd write /tmp/uboot-xxx.bin /dev/mtd0
+          # 注意：具体命令取决于您的设备分区布局
+          ```
+
+          ### 方法 2: 通过 U-Boot 控制台 (串口)
+
+          需要串口连接和 TFTP 服务器。请参考 MediaTek MT7981 相关文档。
+
+          ## 获取完整固件
+
+          如果您需要完整固件镜像 (factory.bin / sysupgrade.bin)，请使用主构建工作流:
+          - 工作流名称: "Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash) with FIP and U-Boot"
+
+          ## 构建信息
+
+          - **ImmortalWrt 版本**: v24.10.4
+          - **目标设备**: ZBT Z8102AX V2 (512MB Flash)
+          - **架构**: MediaTek MT7981 (aarch64)
+          - **构建时间**: 约 15-25 分钟 (仅 U-Boot，不包含完整固件)
+
+          ## 技术支持
+
+          - ImmortalWrt 官网: https://immortalwrt.org/
+          - GitHub 仓库: https://github.com/xyzy12345/ZBT-Z8102AX-V2-imm
+
+          ## 免责声明
+
+          刷写 U-Boot 存在风险。请确保：
+          1. 您了解所做的操作
+          2. 已备份当前 U-Boot
+          3. 有恢复设备的方法 (如串口/JTAG)
+
+          操作风险由您自己承担。
+          EOF
+
+      - name: 上传使用说明
+        uses: actions/upload-artifact@v4
+        with:
+          name: uboot-fip-readme
+          path: ${{ github.workspace }}/uboot_fip/README.md
+          retention-days: 90
