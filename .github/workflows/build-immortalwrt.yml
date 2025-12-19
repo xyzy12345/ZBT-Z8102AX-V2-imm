@@ -190,24 +190,6 @@ jobs:
 
           echo "Available disk space after build:"
           df -h
-      - name: 打包个人软件源
-        run: |
-           # 1. 进入编译产物的 packages 目录
-           cd immortalwrt/bin/targets/mediatek/filogic/packages
-           # 2. （重要！）为这个目录生成 opkg 索引文件
-           /bin/opkg-make-index . > Packages 2>/dev/null
-           gzip -c Packages > Packages.gz
-           # 3. 将这个目录打包成单独的“软件源”压缩包，便于下载
-           cd ..
-           tar -czvf ../my_custom_feed.tar.gz packages/
-
-      - name: 上传软件源包
-        uses: actions/upload-artifact@v4
-        with:
-           name: my_custom_feed
-           path: immortalwrt/bin/targets/mediatek/filogic/my_custom_feed.tar.gz
-           retention-days: 90
-    
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
