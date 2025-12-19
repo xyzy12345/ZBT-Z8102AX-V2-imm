@@ -29,8 +29,9 @@ if: github.event.inputs.clean_disk_space == 'true'
 
 **Evidence**:
 - The build ran for 1 hour 45 minutes, suggesting it progressed far into the toolchain/U-Boot build
-- ImmortalWrt builds require significant disk space (~15-20GB for toolchain + U-Boot)
-- GitHub Actions runners start with ~14GB free, which can be exhausted without cleanup
+- ImmortalWrt builds require significant disk space (~15-25GB for toolchain + U-Boot + dependencies)
+- While GitHub Actions runners start with ~28GB free, after installing build dependencies and cloning repositories, available space can be reduced to ~20GB or less
+- Without cleanup of unnecessary software (~14GB), builds can exhaust remaining space
 
 ### 2. **Lack of Timeouts**
 

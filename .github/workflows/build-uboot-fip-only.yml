@@ -172,7 +172,6 @@ jobs:
           cd immortalwrt
           echo "Available disk space before build:"
           df -h
-          
           # 移除有问题的 U-Boot 补丁 (Known issue in v24.10.4)
           # Workaround for ImmortalWrt issue #2152: This patch fails to apply
           # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
