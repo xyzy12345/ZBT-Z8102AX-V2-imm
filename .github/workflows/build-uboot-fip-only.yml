@@ -172,8 +172,9 @@ jobs:
           cd openwrt
           echo "Available disk space before build:"
           df -h
-          # 移除有问题的 U-Boot 补丁 (Known issue in OpenWrt 24.10.x)
-          # Workaround for potential patch conflicts: This patch may fail to apply
+          # 移除有问题的 U-Boot 补丁 (Precautionary measure for OpenWrt 24.10.x)
+          # This patch was known to cause issues in ImmortalWrt v24.10.4 (issue #2152)
+          # Removing as a precautionary measure, as it may fail to apply
           # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
           echo "Removing potentially problematic U-Boot patch..."
           rm -f package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch || true
