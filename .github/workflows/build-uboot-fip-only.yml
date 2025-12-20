@@ -1,5 +1,5 @@
 ---
-name: Build U-Boot and FIP Only for ZBT Z8102AX V2
+name: Build U-Boot and FIP Only for ZBT Z8102AX V2 (OpenWrt)
 
 on:
   workflow_dispatch:
@@ -47,27 +47,27 @@ jobs:
         with:
           path: 'custom'
 
-      - name: Clone ImmortalWrt v24.10.4
+      - name: Clone OpenWrt v24.10.5
         # yamllint disable rule:line-length
         run: |
-          git clone --depth=1 --branch=v24.10.4 \
-            https://github.com/immortalwrt/immortalwrt.git
-          cd immortalwrt
+          git clone --depth=1 --branch=v24.10.5 \
+            https://github.com/openwrt/openwrt.git
+          cd openwrt
         # yamllint enable rule:line-length
 
       - name: Copy custom DTS file
         # yamllint disable rule:line-length
         run: |
           # 创建必要的目录结构
-          mkdir -p immortalwrt/target/linux/mediatek/dts/
+          mkdir -p openwrt/target/linux/mediatek/dts/
           # 复制DTS文件
-          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
+          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts openwrt/target/linux/mediatek/dts/
           echo "DTS文件已复制"
         # yamllint enable rule:line-length
 
       - name: Update filogic.mk with 512MB device definition
         run: |
-          cd immortalwrt
+          cd openwrt
           # 在filogic.mk中追加512MB设备定义
           cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
 
@@ -101,7 +101,7 @@ jobs:
           echo "Disk space before setup:"
           df -h
 
-          cd immortalwrt
+          cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -120,7 +120,7 @@ jobs:
 
       - name: Configure build for U-Boot only
         run: |
-          cd immortalwrt
+          cd openwrt
           # 创建最小配置仅用于构建 U-Boot
           cat > .config << 'EOF'
           CONFIG_TARGET_mediatek=y
@@ -133,7 +133,7 @@ jobs:
 
       - name: Validate build environment
         run: |
-          cd immortalwrt
+          cd openwrt
           echo "=== Build Environment Validation ==="
           echo "Checking required tools..."
           which gcc g++ make || { echo "ERROR: Basic build tools missing!"; exit 1; }
@@ -169,13 +169,13 @@ jobs:
         timeout-minutes: 120
         run: |
           set -o pipefail
-          cd immortalwrt
+          cd openwrt
           echo "Available disk space before build:"
           df -h
-          # 移除有问题的 U-Boot 补丁 (Known issue in v24.10.4)
-          # Workaround for ImmortalWrt issue #2152: This patch fails to apply
+          # 移除有问题的 U-Boot 补丁 (Known issue in OpenWrt 24.10.x)
+          # Workaround for potential patch conflicts: This patch may fail to apply
           # cleanly to U-Boot 2024.10 SPI-NAND sources, causing build failures
-          echo "Removing problematic U-Boot patch..."
+          echo "Removing potentially problematic U-Boot patch..."
           rm -f package/boot/uboot-mediatek/patches/102-mtd-spinand-esmt-add-support-for-F50L1G41LC.patch || true
           
           # Verify patch removal
@@ -244,7 +244,7 @@ jobs:
 
       - name: 查找并准备 U-Boot 和 FIP 文件
         run: |
-          cd immortalwrt
+          cd openwrt
           echo "查找 U-Boot 和 FIP 文件..."
           
           # 创建 U-Boot/FIP 打包目录
@@ -352,14 +352,14 @@ jobs:
 
           ## 构建信息
 
-          - **ImmortalWrt 版本**: v24.10.4
+          - **OpenWrt 版本**: v24.10.5
           - **目标设备**: ZBT Z8102AX V2 (512MB Flash)
           - **架构**: MediaTek MT7981 (aarch64)
           - **构建时间**: 约 15-25 分钟 (仅 U-Boot，不包含完整固件)
 
           ## 技术支持
 
-          - ImmortalWrt 官网: https://immortalwrt.org/
+          - OpenWrt 官网: https://openwrt.org/
           - GitHub 仓库: https://github.com/xyzy12345/ZBT-Z8102AX-V2-imm
 
           ## 免责声明
