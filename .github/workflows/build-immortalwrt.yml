@@ -282,7 +282,8 @@ jobs:
           # (including incompatible architectures like mt7620/MIPS when targeting aarch64)
           # The firmware build process will compile only the required U-Boot variant.
           # If U-Boot fails to build, the firmware build will fail and error logs will show
-          # the U-Boot compilation errors in the firmware build output.
+          # the U-Boot compilation errors in the firmware build output. To troubleshoot U-Boot
+          # failures, search the log for "uboot-mediatek" or "arm-trusted-firmware" errors.
           echo "=== Building full firmware ==="
           echo "Starting firmware build at: $(date)"
           make -j2 V=s 2>&1 | tee /tmp/firmware_build.log

@@ -213,9 +213,10 @@ jobs:
           df -h
           
           # 编译 U-Boot 和 FIP
-          # Note: Build target/linux/compile which will compile bootloaders needed for the configured device
-          # This builds only the bootloaders for the specific device in .config, avoiding the architecture
-          # mismatch that occurs with `make package/boot/uboot-mediatek/compile` (which builds ALL variants)
+          # Note: Build target/linux/compile which will compile U-Boot and other bootloaders
+          # needed for the configured device. This builds only the bootloaders for the specific
+          # device in .config, avoiding the architecture mismatch that occurs with
+          # `make package/boot/uboot-mediatek/compile` (which builds ALL variants)
           echo "=== Building U-Boot and FIP for target device ==="
           echo "Starting U-Boot build at: $(date)"
           make -j1 V=s target/linux/compile 2>&1 | tee /tmp/uboot_build.log
