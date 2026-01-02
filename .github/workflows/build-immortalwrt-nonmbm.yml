@@ -1,0 +1,221 @@
+---
+name: Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash)
+
+on:
+  workflow_dispatch:
+    inputs:
+      clean_disk_space:
+        description: 'Clean disk space before build (清除磁盘空间以释放空间)'
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches: [main, master]
+    paths:
+      - 'target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts'
+      - '.github/workflows/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Free up disk space
+        # yamllint disable-line rule:line-length
+        if: github.event_name == 'push' || github.event.inputs.clean_disk_space == 'true'
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary software to free up disk space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/share/swift
+
+          # 清理Docker镜像和容器
+          docker images -q | xargs -r docker rmi 2>/dev/null || true
+
+          # Clean apt cache
+          sudo apt-get clean
+
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: 'custom'
+
+      - name: Clone ImmortalWrt v24.10.4
+        # yamllint disable rule:line-length
+        run: |
+          git clone --depth=1 --branch=v24.10.4 \
+            https://github.com/immortalwrt/immortalwrt.git
+          cd immortalwrt
+          # 添加自定义源（如果需要）
+          echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
+          # 添加 qmodem 模组管理插件源
+          echo "src-git qmodem https://github.com/bxyun0/qmodem.git;main" >> feeds.conf.default
+        # yamllint enable rule:line-length
+
+      - name: Copy custom DTS file
+        # yamllint disable rule:line-length
+        run: |
+          # 创建必要的目录结构
+          mkdir -p immortalwrt/target/linux/mediatek/dts/
+          # 复制DTS文件
+          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
+          echo "DTS文件已复制"
+        # yamllint enable rule:line-length
+
+      - name: Update filogic.mk with 512MB device definition
+        run: |
+          cd immortalwrt
+          # 在filogic.mk中追加512MB设备定义
+          cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
+
+          # ZBT Z8102AX V2 (512MB Flash version)
+          define Device/zbtlink_zbt-z8102ax-v2-512m
+            DEVICE_VENDOR := Zbtlink
+            DEVICE_MODEL := ZBT-Z8102AX-V2
+            DEVICE_VARIANT := 512MB Flash
+            DEVICE_DTS := mt7981b-zbtlink-zbt-z8102ax-v2
+            DEVICE_DTS_DIR := ../dts
+            DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware \
+              mt7981-wo-firmware kmod-usb3 kmod-usb-net-qmi-wwan \
+              kmod-usb-serial-option kmod-usb-net-rndis kmod-usb-wwan \
+              luci-app-mwan3 kmod-usb-net-sierrawireless \
+              kmod-usb-serial-qualcomm kmod-usb-acm \
+              kmod-usb-net-cdc-ether kmod-usb-net-cdc-mbim \
+              kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm
+
+            KERNEL_IN_UBI := 1
+            UBINIZE_OPTS := -E 5
+            BLOCKSIZE := 128k
+            PAGESIZE := 2048
+            IMAGE_SIZE := 506432k
+            IMAGES += factory.bin
+            IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+            IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+            DEVICE_COMPAT_VERSION := 1.1
+            DEVICE_COMPAT_MESSAGE := Partition layout has been changed \
+              for 512MB Flash
+          endef
+          TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
+          EOF
+
+      - name: Setup build environment
+        run: |
+          echo "Disk space before setup:"
+          df -h
+
+          cd immortalwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+          echo "Disk space after feeds update:"
+          df -h
+
+          # 安装编译依赖
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang flex bison g++ \
+            gawk gcc-multilib g++-multilib gettext git libncurses5-dev \
+            libssl-dev python3 python3-selinux python3-pip rsync unzip \
+            zlib1g-dev file wget qemu-utils upx libelf-dev device-tree-compiler
+
+          echo "Disk space after dependency installation:"
+          df -h
+
+      - name: Configure build
+        run: |
+          cd immortalwrt
+          # 创建基础配置，包含您需要的软件包
+          cat > .config << 'EOF'
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_filogic=y
+          CONFIG_TARGET_mediatek_filogic_DEVICE_zbtlink_zbt-z8102ax-v2-512m=y
+          # 为512MB Flash设置足够的根文件系统分区大小（约450MB）
+          CONFIG_TARGET_ROOTFS_PARTSIZE=450
+          CONFIG_TARGET_ROOTFS_SQUASHFS=y
+          # ==================== NMBM禁用配置 ====================
+          # 完全禁用NMBM支持（解决硬件坏块导致的元数据区损坏问题）
+          CONFIG_KERNEL_MTD_NMBM=n
+          CONFIG_KERNEL_MTD_NMBM_DEFAULT=n
+          CONFIG_PACKAGE_kmod-mtd-nmbm=n
+          # =====================================================
+          # 基础LuCI
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-base=y
+          CONFIG_PACKAGE_luci-compat=y
+          CONFIG_PACKAGE_luci-theme-bootstrap=y
+          CONFIG_PACKAGE_luci-theme-argon=y
+          # QModem 模组管理插件
+          CONFIG_PACKAGE_luci-app-qmodem=y
+          CONFIG_PACKAGE_luci-app-qmodem-sms=y
+          CONFIG_PACKAGE_luci-app-qmodem-mwan=y
+          CONFIG_PACKAGE_luci-app-qmodem-ttl=y
+          # UBI 工具集 (核心)
+          CONFIG_PACKAGE_ubi-utils=y
+          CONFIG_PACKAGE_ubi-utils-ubinize=y
+          # MTD 工具集 (备用)
+          CONFIG_PACKAGE_mtd-utils=y
+          CONFIG_PACKAGE_mtd-utils-nandwrite=y
+          CONFIG_PACKAGE_mtd-utils-ubiformat=y
+          # 网络工具 (二选一即可，推荐wget)
+          CONFIG_PACKAGE_wget=y
+          # 或者使用 curl
+          # CONFIG_PACKAGE_curl=y
+          # 文件校验工具
+          CONFIG_PACKAGE_coreutils-md5sum=y
+          # 可选：循环设备支持 (用于高级操作)
+          CONFIG_PACKAGE_kmod-loop=y
+          CONFIG_PACKAGE_losetup=y
+          # 可选：大型应用（建议刷机后在线安装，如需集成请取消注释）
+          # CONFIG_PACKAGE_luci-app-openclash=y
+          # CONFIG_PACKAGE_adguardhome=y
+          CONFIG_PACKAGE_kmod-usb2=y
+          CONFIG_PACKAGE_kmod-usb-ohci=y
+          CONFIG_PACKAGE_kmod-ipt-extra=y
+          CONFIG_PACKAGE_kmod-ipt-nat6=y
+          CONFIG_PACKAGE_kmod-ipt-nat=y
+          CONFIG_PACKAGE_kmod-ipt-physdev=y
+          CONFIG_PACKAGE_kmod-nf-ipvs=y
+          CONFIG_PACKAGE_kmod-veth=y
+          CONFIG_PACKAGE_kmod-ipt-fullconenat=y
+          CONFIG_PACKAGE_kmod-nft-tproxy=y
+          CONFIG_PACKAGE_kmod-tun=y
+          CONFIG_PACKAGE_kmod-fs-btrfs=y
+          CONFIG_PACKAGE_kmod-inet-diag=y
+          CONFIG_PACKAGE_kmod-netlink-diag=y
+          CONFIG_PACKAGE_coreutils=y
+          CONFIG_PACKAGE_coreutils-nohup=y
+          CONFIG_PACKAGE_kmod-mtd-rw=y
+          CONFIG_PACKAGE_dnsmasq-full=y
+          EOF
+
+          # 应用默认配置，这将自动解析并添加上述包的依赖
+          make defconfig
+
+      - name: Build firmware
+        run: |
+          cd immortalwrt
+          echo "Available disk space before build:"
+          df -h
+
+          # 开始编译 - Use fewer parallel jobs to reduce disk usage
+          # Using 2 jobs instead of all cores to save disk space
+          # Note: -j1 fallback is for any build failures,
+          # not just resource issues
+          make -j2 V=s || make -j1 V=s
+
+          echo "Available disk space after build:"
+          df -h
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-zbt-z8102ax-v2-512m
+          path: immortalwrt/bin/targets/mediatek/filogic/
+          retention-days: 7
