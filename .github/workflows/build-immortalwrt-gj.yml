@@ -1,32 +1,32 @@
 ---
-名称: 为ZBT Z8102AX V2（512MB闪存）构建ImmortalWrt
+name: Build ImmortalWrt for ZBT Z8102AX V2 (512MB Flash)
 
-在:
-工作流调度:
-输入:
-清理磁盘空间:
-描述: '构建前清理磁盘空间（清除磁盘空间以释放空间）'
-必填: 是
-默认: 是
-类型: 布尔
-推送:
-分支: [main,master]
-路径:
+on:
+  workflow_dispatch:
+    inputs:
+      clean_disk_space:
+        description: 'Clean disk space before build (清除磁盘空间以释放空间)'
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches: [main, master]
+    paths:
       - 'target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts'
       - '.github/workflows/**'
 
-作业:
-构建:
-运行于: ubuntu-latest
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-步骤:
-      - name: 释放磁盘空间
-        # yamllint 禁用行规则：行长度
-github.event_name ==|| github.event.inputs.clean_disk_space ==
-运行: |
-echo "清理前的磁盘空间："
+    steps:
+      - name: Free up disk space
+        # yamllint disable-line rule:line-length
+        if: github.event_name == 'push' || github.event.inputs.clean_disk_space == 'true'
+        run: |
+          echo "Disk space before cleanup:"
           df -h
-# 删除不必要的软件以释放磁盘空间
+          # Remove unnecessary software to free up disk space
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
@@ -37,41 +37,41 @@ echo "清理前的磁盘空间："
           # 清理Docker镜像和容器
           docker images -q | xargs -r docker rmi 2>/dev/null || true
 
-          # 清理apt缓存
+          # Clean apt cache
           sudo apt-get clean
 
-回声清理后的磁盘空间：
+          echo "Disk space after cleanup:"
           df -h
 
-      - name: 检出仓库
-actions/checkout@v4
-与:
-路径: '自定义'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: 'custom'
 
       - name: Clone ImmortalWrt v24.10.4
-        # yamllint 禁用规则：行长度
-运行: |
+        # yamllint disable rule:line-length
+        run: |
           git clone --depth=1 --branch=v24.10.4 \
             https://github.com/immortalwrt/immortalwrt.git
           cd immortalwrt
           # 添加自定义源（如果需要）
           echo "src-git custom https://github.com/${{ github.repository }}.git;main" >> feeds.conf.default
-# 添加qmodem模块管理插件源
+          # 添加 qmodem 模组管理插件源
           echo "src-git qmodem https://github.com/bxyun0/qmodem.git;main" >> feeds.conf.default
-# yamllint 启用规则：行长度
+        # yamllint enable rule:line-length
 
-- 名称：复制自定义DTS文件
-# yamllint 禁用规则：行长度
-运行: |
+      - name: Copy custom DTS file
+        # yamllint disable rule:line-length
+        run: |
           # 创建必要的目录结构
           mkdir -p immortalwrt/target/linux/mediatek/dts/
           # 复制DTS文件
-cp 自定义/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
+          cp custom/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immortalwrt/target/linux/mediatek/dts/
           echo "DTS文件已复制"
-        # yamllint 启用规则：行长度
+        # yamllint enable rule:line-length
 
-      - name: 用512MB设备定义更新filogic.mk
-运行: |
+      - name: Update filogic.mk with 512MB device definition
+        run: |
           cd immortalwrt
           # 在filogic.mk中追加512MB设备定义
           cat >> target/linux/mediatek/image/filogic.mk << 'EOF'
@@ -115,7 +115,7 @@ cp 自定义/target/linux/mediatek/dts/mt7981b-zbtlink-zbt-z8102ax-v2.dts immort
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-echo “更新源后磁盘空间：”
+          echo "Disk space after feeds update:"
           df -h
 
           # 安装编译依赖
@@ -125,11 +125,11 @@ echo “更新源后磁盘空间：”
             libssl-dev python3 python3-selinux python3-pip rsync unzip \
             zlib1g-dev file wget qemu-utils upx libelf-dev device-tree-compiler
 
-echo "依赖安装后的磁盘空间："
+          echo "Disk space after dependency installation:"
           df -h
 
       - name: Configure build
-运行: |
+        run: |
           cd immortalwrt
           # 创建基础配置，包含您需要的软件包
           cat > .config << 'EOF'
