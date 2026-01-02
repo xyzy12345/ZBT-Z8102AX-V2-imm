@@ -150,6 +150,22 @@ echo "依赖安装后的磁盘空间："
           CONFIG_PACKAGE_luci-app-qmodem-sms=y
           CONFIG_PACKAGE_luci-app-qmodem-mwan=y
           CONFIG_PACKAGE_luci-app-qmodem-ttl=y
+          # UBI 工具集 (核心)
+          CONFIG_PACKAGE_ubi-utils=y
+          CONFIG_PACKAGE_ubi-utils-ubinize=y
+          # MTD 工具集 (备用)
+          CONFIG_PACKAGE_mtd-utils=y
+          CONFIG_PACKAGE_mtd-utils-nandwrite=y
+          CONFIG_PACKAGE_mtd-utils-ubiformat=y
+          # 网络工具 (二选一即可，推荐wget)
+          CONFIG_PACKAGE_wget=y
+          # 或者使用 curl
+          # CONFIG_PACKAGE_curl=y
+          # 文件校验工具
+          CONFIG_PACKAGE_coreutils-md5sum=y
+          # 可选：循环设备支持 (用于高级操作)
+          CONFIG_PACKAGE_kmod-loop=y
+          CONFIG_PACKAGE_losetup=y
           # 可选：大型应用（建议刷机后在线安装，如需集成请取消注释）
           # CONFIG_PACKAGE_luci-app-openclash=y
           # CONFIG_PACKAGE_adguardhome=y
