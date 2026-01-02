@@ -213,9 +213,13 @@ jobs:
           df -h
           
           # 编译 U-Boot 和 FIP
-          echo "=== Building U-Boot and FIP ==="
+          # Note: Build target/linux/compile which will compile U-Boot and other bootloaders
+          # needed for the configured device. This builds only the bootloaders for the specific
+          # device in .config, avoiding the architecture mismatch that occurs with
+          # `make package/boot/uboot-mediatek/compile` (which builds ALL variants)
+          echo "=== Building U-Boot and FIP for target device ==="
           echo "Starting U-Boot build at: $(date)"
-          make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log
+          make -j1 V=s target/linux/compile 2>&1 | tee /tmp/uboot_build.log
           UBOOT_STATUS=${PIPESTATUS[0]}
           if [ $UBOOT_STATUS -ne 0 ]; then
             echo "=== U-Boot build failed! Last 200 lines of output: ==="
@@ -226,7 +230,7 @@ jobs:
             df -h
             echo "=== Retrying U-Boot build... ==="
             sleep 3
-            make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log
+            make -j1 V=s target/linux/compile 2>&1 | tee /tmp/uboot_build_retry.log
             UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
             if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
               echo "=== U-Boot retry also failed! Last 200 lines: ==="

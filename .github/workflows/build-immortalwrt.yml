@@ -277,27 +277,13 @@ jobs:
           fi
           echo "Toolchain build completed at: $(date)"
           
-          # 先编译 U-Boot 和 FIP (使用正确的包路径)
-          echo "=== Building U-Boot and FIP ==="
-          echo "Starting U-Boot build at: $(date)"
-          make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build.log
-          UBOOT_STATUS=${PIPESTATUS[0]}
-          if [ $UBOOT_STATUS -ne 0 ]; then
-            echo "=== U-Boot build failed! Last 100 lines of output: ==="
-            tail -100 /tmp/uboot_build.log
-            echo "=== Retrying U-Boot build... ==="
-            sleep 3
-            make -j1 V=s package/boot/uboot-mediatek/compile 2>&1 | tee /tmp/uboot_build_retry.log
-            UBOOT_RETRY_STATUS=${PIPESTATUS[0]}
-            if [ $UBOOT_RETRY_STATUS -ne 0 ]; then
-              echo "=== U-Boot retry also failed! Last 100 lines: ==="
-              tail -100 /tmp/uboot_build_retry.log
-              exit 1
-            fi
-          fi
-          echo "U-Boot build completed at: $(date)"
-          
-          # 然后编译整个固件
+          # Build firmware directly - U-Boot will be built automatically for the target device
+          # Note: Explicit U-Boot compilation is removed to avoid building all variants
+          # (including incompatible architectures like mt7620/MIPS when targeting aarch64)
+          # The firmware build process will compile only the required U-Boot variant.
+          # If U-Boot fails to build, the firmware build will fail and error logs will show
+          # the U-Boot compilation errors in the firmware build output. To troubleshoot U-Boot
+          # failures, search the log for "uboot-mediatek" or "arm-trusted-firmware" errors.
           echo "=== Building full firmware ==="
           echo "Starting firmware build at: $(date)"
           make -j2 V=s 2>&1 | tee /tmp/firmware_build.log
