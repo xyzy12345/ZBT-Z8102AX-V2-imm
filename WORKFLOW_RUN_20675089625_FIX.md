@@ -205,13 +205,13 @@ Removed **~80 non-essential packages** to reduce build time and disk usage:
 - `uboot-envtools`
 
 **Impact**: 
-- Removed ~80 packages (from ~150 to ~70)
+- Removed ~80 packages (from ~150 to ~47)
 - Estimated build time reduction: 30-40%
 - Estimated disk space savings: 2-3GB
 - Firmware size reduction: 10-20MB
 
 **影响**：
-- 移除约 80 个软件包（从约 150 个减少到约 70 个）
+- 移除约 80 个软件包（从约 150 个减少到约 47 个）
 - 预计减少构建时间：30-40%
 - 预计节省磁盘空间：2-3GB
 - 固件大小减少：10-20MB

@@ -10,9 +10,9 @@
 
 ## Problem Summary / 问题概述
 
-The ImmortalWrt firmware build for ZBT Z8102AX V2 (512MB Flash) failed after running for approximately 3.5 hours. While we cannot access the exact error logs directly, analysis of the workflow configuration reveals several critical issues that cause both the extended build time and likely build failures.
+The ImmortalWrt firmware build for ZBT Z8102AX V2 (512MB Flash) failed after running for approximately 3.5 hours. While we cannot access the exact error logs directly from the GitHub Actions API, analysis of the workflow configuration and comparison with common ImmortalWrt build issues reveals several critical problems that likely caused both the extended build time and build failures. The following analysis is based on workflow configuration review and known ImmortalWrt build system characteristics.
 
-ImmortalWrt 固件构建失败，运行了约 3.5 小时。虽然无法直接访问错误日志，但对工作流配置的分析揭示了导致构建时间过长和构建失败的几个关键问题。
+ImmortalWrt 固件构建失败，运行了约 3.5 小时。虽然无法直接从 GitHub Actions API 访问确切的错误日志，但对工作流配置的分析以及与常见 ImmortalWrt 构建问题的比较揭示了几个可能导致构建时间过长和构建失败的关键问题。以下分析基于工作流配置审查和已知的 ImmortalWrt 构建系统特性。
 
 ## Root Causes / 根本原因
 

@@ -282,12 +282,13 @@ jobs:
           JOBS=$(($(nproc) + 1))
           echo "Building with ${JOBS} parallel jobs ($(nproc) CPU cores detected)"
           
-          # Monitor disk space in background
-          (while true; do
+          # Monitor disk space in background with timeout
+          # Stops monitoring after 4 hours (max expected build time)
+          (timeout 4h bash -c 'while true; do
             echo "=== Disk space check at $(date +%H:%M:%S) ==="
             df -h | grep -E "Filesystem|/dev/root"
             sleep 300
-          done) &
+          done') &
           MONITOR_PID=$!
 
           # Build with optimized parallelization
