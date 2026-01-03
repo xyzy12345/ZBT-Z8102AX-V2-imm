@@ -106,6 +106,32 @@ jobs:
           TARGET_DEVICES += zbtlink_zbt-z8102ax-v2-512m
           EOF
 
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: immortalwrt/dl
+          key: dl-${{ hashFiles('immortalwrt/feeds.conf.default') }}
+          restore-keys: |
+            dl-
+
+      - name: Cache feeds
+        uses: actions/cache@v4
+        with:
+          path: |
+            immortalwrt/feeds
+            immortalwrt/package/feeds
+          key: feeds-${{ hashFiles('immortalwrt/feeds.conf.default') }}
+          restore-keys: |
+            feeds-
+
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-immortalwrt-${{ github.sha }}
+          restore-keys: |
+            ccache-immortalwrt-
+
       - name: Setup build environment
         run: |
           echo "Disk space before setup:"
@@ -125,13 +151,18 @@ jobs:
             libssl-dev python3 python3-selinux python3-pip rsync unzip \
             zlib1g-dev file wget qemu-utils upx libelf-dev device-tree-compiler
 
+          # Setup ccache
+          mkdir -p ~/.ccache
+          echo "max_size = 5.0G" > ~/.ccache/ccache.conf
+          echo "compression = true" >> ~/.ccache/ccache.conf
+
           echo "Disk space after dependency installation:"
           df -h
 
       - name: Configure build
         run: |
           cd immortalwrt
-          # 创建基础配置，包含您需要的软件包
+          # 创建优化的基础配置，减少不必要的软件包以加快构建速度
           cat > .config << 'EOF'
           # Target System
           CONFIG_TARGET_mediatek=y
@@ -144,14 +175,18 @@ jobs:
           CONFIG_TARGET_ROOTFS_INITRAMFS=y
           CONFIG_TARGET_KERNEL_PARTSIZE=16
 
+          # ================== Build Optimization ==================
+          CONFIG_CCACHE=y
+
           # ================== NMBM & NAND 修复核心 ==================
           CONFIG_MTD_NAND_MTK=y
           CONFIG_MTD_NAND_MTK_SPI=y
           CONFIG_MTD_SPI_NAND=y
           CONFIG_MTD_NMBM=y
           CONFIG_MTD_NMBM_MTD=y
-          CONFIG_MTD_NMBM_DEBUG=y
-          CONFIG_MTD_NMBM_DEBUG_VERBOSE=y
+          # Debug options removed to speed up build and reduce firmware size
+          # CONFIG_MTD_NMBM_DEBUG is not set
+          # CONFIG_MTD_NMBM_DEBUG_VERBOSE is not set
           CONFIG_MTD_NMBM_CREATE=y
           CONFIG_MTD_NMBM_USE_CMDLINE_PARAMS=y
           CONFIG_MTD_UBI_FASTMAP=y
@@ -169,75 +204,23 @@ jobs:
           CONFIG_PACKAGE_kmod-mtd-spi-nand=y
           CONFIG_PACKAGE_kmod-loop=y
 
-          # ================== MTD/UBI 工具 ==================
+          # ================== MTD/UBI 工具（精简版）==================
           CONFIG_PACKAGE_mtd-utils=y
-          CONFIG_PACKAGE_mtd-utils-nandwrite=y
-          CONFIG_PACKAGE_mtd-utils-nanddump=y
           CONFIG_PACKAGE_mtd-utils-flash_erase=y
-          CONFIG_PACKAGE_mtd-utils-mtd_debug=y
           CONFIG_PACKAGE_mtd-utils-ubinize=y
           CONFIG_PACKAGE_mtd-utils-ubiformat=y
-          CONFIG_PACKAGE_mtd-utils-ubinfo=y
-          CONFIG_PACKAGE_mtd-utils-ubidetach=y
-          CONFIG_PACKAGE_mtd-utils-ubiattach=y
-          CONFIG_PACKAGE_mtd-utils-ubimkvol=y
-          CONFIG_PACKAGE_mtd-utils-ubirsvol=y
-          CONFIG_PACKAGE_mtd-utils-ubiupdatevol=y
-          CONFIG_PACKAGE_mtd-utils-ubicrc32=y
 
           # ================== U-Boot 工具 ==================
           CONFIG_PACKAGE_uboot-envtools=y
-          CONFIG_PACKAGE_uboot-envtools-mediatek_filogic=y
-          CONFIG_PACKAGE_fw_printenv=y
-          CONFIG_PACKAGE_fw_setenv=y
 
-          # ================== 网络工具 ==================
-          CONFIG_PACKAGE_wget=y
+          # ================== 基础网络工具 ==================
           CONFIG_PACKAGE_wget-ssl=y
           CONFIG_PACKAGE_curl=y
           CONFIG_PACKAGE_libustream-openssl=y
-          CONFIG_PACKAGE_openssh-client=y
-          CONFIG_PACKAGE_openssh-server=y
-          CONFIG_PACKAGE_openssh-sftp-server=y
 
-          # ================== 文件系统工具 ==================
-          CONFIG_PACKAGE_e2fsprogs=y
-          CONFIG_PACKAGE_f2fs-tools=y
-          CONFIG_PACKAGE_f2fsck=y
-          CONFIG_PACKAGE_squashfs-tools=y
-          CONFIG_PACKAGE_squashfs-tools-unsquashfs=y
-          CONFIG_PACKAGE_squashfs-tools-mksquashfs=y
-          CONFIG_PACKAGE_tar=y
-          CONFIG_PACKAGE_gzip=y
-          CONFIG_PACKAGE_xz-utils=y
-
-          # ================== 核心工具 ==================
+          # ================== 基础系统工具 ==================
           CONFIG_PACKAGE_bash=y
-          CONFIG_PACKAGE_coreutils=y
           CONFIG_PACKAGE_coreutils-base64=y
-          CONFIG_PACKAGE_coreutils-sha1sum=y
-          CONFIG_PACKAGE_coreutils-sha256sum=y
-          CONFIG_PACKAGE_coreutils-sha512sum=y
-          CONFIG_PACKAGE_coreutils-md5sum=y
-          CONFIG_PACKAGE_coreutils-sort=y
-          CONFIG_PACKAGE_coreutils-split=y
-          CONFIG_PACKAGE_coreutils-tail=y
-          CONFIG_PACKAGE_coreutils-tee=y
-          CONFIG_PACKAGE_coreutils-truncate=y
-
-          # ================== 系统工具 ==================
-          CONFIG_PACKAGE_procps-ng=y
-          CONFIG_PACKAGE_procps-ng-free=y
-          CONFIG_PACKAGE_procps-ng-pkill=y
-          CONFIG_PACKAGE_procps-ng-pmap=y
-          CONFIG_PACKAGE_procps-ng-pwdx=y
-          CONFIG_PACKAGE_procps-ng-sysctl=y
-          CONFIG_PACKAGE_procps-ng-tload=y
-          CONFIG_PACKAGE_procps-ng-uptime=y
-          CONFIG_PACKAGE_procps-ng-w=y
-          CONFIG_PACKAGE_procps-ng-watch=y
-          CONFIG_PACKAGE_lsof=y
-          CONFIG_PACKAGE_strace=y
 
           # ================== LuCI (最小化) ==================
           CONFIG_PACKAGE_luci=y
@@ -246,40 +229,16 @@ jobs:
           CONFIG_PACKAGE_luci-theme-bootstrap=y
           CONFIG_PACKAGE_luci-app-firewall=y
           CONFIG_PACKAGE_luci-app-opkg=y
-          CONFIG_PACKAGE_luci-app-ttyd=y
 
-          # ================== 网络诊断 ==================
+          # ================== 基础网络诊断 ==================
           CONFIG_PACKAGE_iputils-ping=y
-          CONFIG_PACKAGE_iputils-ping6=y
-          CONFIG_PACKAGE_iputils-tracepath=y
-          CONFIG_PACKAGE_iputils-tracepath6=y
-          CONFIG_PACKAGE_iputils-arping=y
           CONFIG_PACKAGE_traceroute=y
-          CONFIG_PACKAGE_mtr=y
-          CONFIG_PACKAGE_nmap=y
-          CONFIG_PACKAGE_nmap-ssl=y
-          CONFIG_PACKAGE_iperf3=y
-          CONFIG_PACKAGE_socat=y
-          CONFIG_PACKAGE_netcat=y
 
-          # ================== USB 支持 ==================
+
+          # ================== USB 支持（基础）==================
           CONFIG_PACKAGE_kmod-usb-core=y
-          CONFIG_PACKAGE_kmod-usb-ohci=y
-          CONFIG_PACKAGE_kmod-usb-uhci=y
           CONFIG_PACKAGE_kmod-usb2=y
           CONFIG_PACKAGE_kmod-usb3=y
-          CONFIG_PACKAGE_kmod-usb-storage=y
-          CONFIG_PACKAGE_kmod-usb-storage-extras=y
-          CONFIG_PACKAGE_kmod-usb-storage-uas=y
-          CONFIG_PACKAGE_usbutils=y
-
-          # ================== 硬件监控 ==================
-          CONFIG_PACKAGE_lm-sensors=y
-          CONFIG_PACKAGE_lm-sensors-detect=y
-          CONFIG_PACKAGE_smartmontools=y
-          CONFIG_PACKAGE_smartmontools-drivedb=y
-          CONFIG_PACKAGE_hdparm=y
-          CONFIG_PACKAGE_hd-idle=y
 
           # ================== 内核命令行参数 ==================
           CONFIG_KERNEL_CMDLINE="console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000 ubi.mtd=ubi root=/dev/ubi0_0 rootfstype=squashfs ro nmbm=1 nmbm_force_create=1 nmbm_force_no_bbt=1"
@@ -295,37 +254,16 @@ jobs:
           CONFIG_PACKAGE_comgt-ncm=y
           CONFIG_PACKAGE_uqmi=y
 
-          # ================== 防火墙/NAT ==================
-          CONFIG_PACKAGE_kmod-ipt-extra=y
-          CONFIG_PACKAGE_kmod-ipt-nat6=y
+          # ================== 防火墙/NAT（精简）==================
           CONFIG_PACKAGE_kmod-ipt-nat=y
-          CONFIG_PACKAGE_kmod-ipt-physdev=y
-          CONFIG_PACKAGE_kmod-nf-ipvs=y
-          CONFIG_PACKAGE_kmod-veth=y
           CONFIG_PACKAGE_kmod-ipt-fullconenat=y
-          CONFIG_PACKAGE_kmod-nft-tproxy=y
-          CONFIG_PACKAGE_kmod-tun=y
-          CONFIG_PACKAGE_kmod-fs-btrfs=y
-          CONFIG_PACKAGE_kmod-inet-diag=y
-          CONFIG_PACKAGE_kmod-netlink-diag=y
 
           # ================== DNS/DHCP ==================
           CONFIG_PACKAGE_dnsmasq-full=y
           CONFIG_PACKAGE_dnsmasq_full_dhcp=y
           CONFIG_PACKAGE_dnsmasq_full_dhcpv6=y
-          CONFIG_PACKAGE_dnsmasq_full_dnssec=y
-          CONFIG_PACKAGE_dnsmasq_full_auth=y
-          CONFIG_PACKAGE_dnsmasq_full_ipset=y
-          CONFIG_PACKAGE_dnsmasq_full_conntrack=y
-          CONFIG_PACKAGE_dnsmasq_full_tftp=y
 
-          # ================== 可选但推荐 ==================
-          CONFIG_PACKAGE_vim=y
-          CONFIG_PACKAGE_nano=y
-          CONFIG_PACKAGE_htop=y
-          CONFIG_PACKAGE_ethtool=y
-          CONFIG_PACKAGE_iw=y
-          CONFIG_PACKAGE_iwinfo=y
+          # ================== WiFi ==================
           CONFIG_PACKAGE_hostapd-common=y
           CONFIG_PACKAGE_wpad-openssl=y
           EOF
@@ -339,11 +277,26 @@ jobs:
           echo "Available disk space before build:"
           df -h
 
-          # 开始编译 - Use fewer parallel jobs to reduce disk usage
-          # Using 2 jobs instead of all cores to save disk space
-          # Note: -j1 fallback is for any build failures,
-          # not just resource issues
-          make -j2 V=s || make -j1 V=s
+          # Use optimal number of jobs based on available cores
+          # GitHub Actions provides 2-4 cores, use nproc to auto-detect
+          JOBS=$(($(nproc) + 1))
+          echo "Building with ${JOBS} parallel jobs ($(nproc) CPU cores detected)"
+          
+          # Monitor disk space in background with timeout
+          # Stops monitoring after 4 hours (max expected build time)
+          (timeout 4h bash -c 'while true; do
+            echo "=== Disk space check at $(date +%H:%M:%S) ==="
+            df -h | grep -E "Filesystem|/dev/root"
+            sleep 300
+          done') &
+          MONITOR_PID=$!
+
+          # Build with optimized parallelization
+          # First try with full parallelization, fall back to single job on failure
+          make -j${JOBS} V=s || make -j1 V=s
+          
+          # Stop disk monitor
+          kill $MONITOR_PID 2>/dev/null || true
 
           echo "Available disk space after build:"
           df -h
