@@ -224,6 +224,7 @@ jobs:
           CONFIG_PACKAGE_coreutils-nohup=y
           CONFIG_PACKAGE_kmod-mtd-rw=y
           CONFIG_PACKAGE_dnsmasq-full=y
+          CONFIG_PACKAGE_automount=y
           EOF
 
           # 应用默认配置，这将自动解析并添加上述包的依赖
